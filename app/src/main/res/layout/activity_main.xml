@@ -54,7 +54,6 @@
                     android:id="@+id/btn_play"
                     android:layout_width="40dp"
                     android:layout_height="40dp"
-                    android:visibility="gone"
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:src="@android:drawable/ic_media_play"
                     app:tint="#4CAF50" />
@@ -74,20 +73,13 @@
             app:tabTextAppearance="@android:style/TextAppearance.Small"
             app:tabIndicatorHeight="2dp" />
 
-        <EditText
+        <WebView
             android:id="@+id/editor"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
             android:background="#0D0D0D"
-            android:gravity="top"
-            android:padding="16dp"
-            android:fontFamily="monospace"
-            android:textColor="#D4D4D4"
-            android:textSize="14sp"
-            android:scrollbars="vertical"
-            android:inputType="textMultiLine|textNoSuggestions|textVisiblePassword"
-            android:lineSpacingExtra="4dp" />
+            android:padding="16dp" />
 
         <HorizontalScrollView
             android:layout_width="match_parent"
@@ -188,6 +180,5 @@
                 android:textSize="13sp" />
         </LinearLayout>
     </LinearLayout>
-
 </androidx.drawerlayout.widget.DrawerLayout>
-            
+        
