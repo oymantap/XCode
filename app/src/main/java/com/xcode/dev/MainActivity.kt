@@ -157,11 +157,13 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun runWebView() {
-        val webView = WebView(this)
-        webView.settings.javaScriptEnabled = true
-        webView.webViewClient = WebViewClient()
-        webView.loadDataWithBaseURL("http://localhost:7777/", editor.text.toString(), "text/html", "UTF-8", null)
-        AlertDialog.Builder(this).setView(webView).show()
+        // Jangan pake AlertDialog, langsung pindah layar (Activity)
+        val intent = Intent(this, PreviewActivity::class.java)
+        
+        // Kirim kode dari editor ke layar preview
+        intent.putExtra("html_code", editor.text.toString())
+        
+        startActivity(intent)
     }
 
     private fun setupShortcuts(layout: LinearLayout) {
