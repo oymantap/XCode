@@ -100,12 +100,13 @@
         android:clickable="true"
         android:focusable="true">
         <TextView
+            android:id="@+id/txt_explorer_header"
             android:layout_width="match_parent"
             android:layout_height="56dp"
             android:background="#252526"
             android:gravity="center_vertical"
             android:paddingHorizontal="15dp"
-            android:text="Penjelajah Berkas"
+            android:text="Hubungkan Folder +"
             android:textColor="#FFFFFF"
             android:textStyle="bold" />
         <TextView
