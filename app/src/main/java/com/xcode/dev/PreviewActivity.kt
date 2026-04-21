@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.util.TypedValue
 import android.webkit.*
 import android.widget.*
+import android.view.Gravity
 import androidx.appcompat.app.AppCompatActivity
 
 class PreviewActivity : AppCompatActivity() {
