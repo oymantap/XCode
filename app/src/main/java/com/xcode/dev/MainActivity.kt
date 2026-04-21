@@ -1,19 +1,10 @@
 package com.xcode.dev
 
-import android.content.Intent
-import android.net.Uri
-import android.os.Build
 import android.os.Bundle
-import android.os.Environment
-import android.provider.Settings
-import android.view.KeyEvent
 import android.widget.Button
 import android.widget.LinearLayout
 import androidx.appcompat.app.AppCompatActivity
-import io.github.rosemoe.sora.langs.html.HTMLLanguage
-import io.github.rosemoe.sora.langs.python.PythonLanguage
-import io.github.rosemoe.sora.widget.CodeEditor
-import io.github.rosemoe.sora.widget.schemes.SchemeDarcula
+import com.ahmadaghazadeh.editor.widget.CodeEditor
 
 class MainActivity : AppCompatActivity() {
 
@@ -26,65 +17,57 @@ class MainActivity : AppCompatActivity() {
         editor = findViewById(R.id.editor)
         val shortcutLayout = findViewById<LinearLayout>(R.id.shortcut_layout)
 
-        // Editor setup
-        editor.setEditorLanguage(PythonLanguage())
-        editor.colorScheme = SchemeDarcula()
-        editor.setTextSize(14f)
+        // Setup Editor
+        editor.setTheme(com.ahmadaghazadeh.editor.processor.utils.Theme.DARCULA)
+        editor.setType(com.ahmadaghazadeh.editor.processor.utils.Language.PYTHON)
+        editor.content = "" // Awal kosong
 
-        requestStoragePermission()
-
+        // Shortcut Bar
         val shortcuts = arrayOf("!", "TAB", "<", ">", "/", "(", ")", "{", "}", "[", "]", ":", ";", "\"", "'", "=", "+", "-")
 
         shortcuts.forEach { label ->
             val btn = Button(this).apply {
                 text = label
+                minWidth = 80
+                setBackgroundColor(0x00000000)
+                setTextColor(0xFFFFFFFF.toInt())
             }
 
             btn.setOnClickListener {
-                when (label) {
-                    "TAB" -> handleTabShortcut()
-                    else -> editor.insertText(label)
+                if (label == "TAB") {
+                    handleTab()
+                } else {
+                    editor.insertText(label)
                 }
             }
-
             shortcutLayout.addView(btn)
         }
     }
 
-    private fun handleTabShortcut() {
-        val content = editor.text.toString()
-
-        if (content.endsWith("!")) {
-            editor.deleteText(1)
-
+    private fun handleTab() {
+        val currentText = editor.content
+        if (currentText.endsWith("!")) {
+            // Hapus '!' dan masukkan boilerplate HTML5
+            val cleanText = currentText.substring(0, currentText.length - 1)
             val htmlBoilerplate = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Document</title>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta http-equiv="X-UA-Compatible" content="ie=edge">
+  <title>Document</title>
 </head>
 <body>
-
+  
 </body>
-</html>
-""".trimIndent()
+</html>""".trimIndent()
 
-            editor.insertText(htmlBoilerplate)
-            editor.setEditorLanguage(HTMLLanguage())
+            editor.content = cleanText + htmlBoilerplate
+            editor.setType(com.ahmadaghazadeh.editor.processor.utils.Language.HTML)
         } else {
             editor.insertText("    ")
         }
     }
-
-    private fun requestStoragePermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            if (!Environment.isExternalStorageManager()) {
-                val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
-                intent.data = Uri.parse("package:$packageName")
-                startActivity(intent)
-            }
-        }
-    }
 }
+
