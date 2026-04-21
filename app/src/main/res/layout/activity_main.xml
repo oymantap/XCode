@@ -3,19 +3,21 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:id="@+id/drawer_layout"
     android:layout_width="match_parent"
-    android:layout_height="match_parent">
+    android:layout_height="match_parent"
+    android:background="#0D0D0D">
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:orientation="vertical"
-        android:background="#0D0D0D">
+        android:orientation="vertical">
 
         <RelativeLayout
             android:layout_width="match_parent"
             android:layout_height="56dp"
             android:background="#1E1E1E"
-            android:paddingHorizontal="10dp">
+            android:paddingHorizontal="10dp"
+            android:elevation="4dp">
+            
             <ImageButton
                 android:id="@+id/btn_open_drawer"
                 android:layout_width="48dp"
@@ -24,18 +26,22 @@
                 android:background="?attr/selectableItemBackgroundBorderless"
                 android:src="@android:drawable/ic_menu_sort_by_size"
                 app:tint="#FFFFFF" />
+
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_centerInParent="true"
                 android:text="XCode Pro"
                 android:textColor="#FFFFFF"
+                android:textSize="18sp"
                 android:textStyle="bold" />
+
             <LinearLayout
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_alignParentEnd="true"
                 android:layout_centerVertical="true">
+                
                 <ImageButton
                     android:id="@+id/btn_save"
                     android:layout_width="40dp"
@@ -43,6 +49,7 @@
                     android:background="?attr/selectableItemBackgroundBorderless"
                     android:src="@android:drawable/ic_menu_save"
                     app:tint="#007ACC" />
+
                 <ImageButton
                     android:id="@+id/btn_play"
                     android:layout_width="40dp"
@@ -57,12 +64,15 @@
         <com.google.android.material.tabs.TabLayout
             android:id="@+id/tab_layout"
             android:layout_width="match_parent"
-            android:layout_height="40dp"
-            android:background="#1E1E1E"
+            android:layout_height="45dp"
+            android:background="#252526"
             app:tabIndicatorColor="#007ACC"
             app:tabSelectedTextColor="#FFFFFF"
             app:tabTextColor="#808080"
-            app:tabMode="scrollable" />
+            app:tabMode="scrollable"
+            app:tabGravity="fill"
+            app:tabTextAppearance="@android:style/TextAppearance.Small"
+            app:tabIndicatorHeight="2dp" />
 
         <EditText
             android:id="@+id/editor"
@@ -71,22 +81,25 @@
             android:layout_weight="1"
             android:background="#0D0D0D"
             android:gravity="top"
-            android:padding="12dp"
+            android:padding="16dp"
             android:fontFamily="monospace"
-            android:textColor="#CE9178"
+            android:textColor="#D4D4D4"
             android:textSize="14sp"
-            android:inputType="textMultiLine|textNoSuggestions" />
+            android:scrollbars="vertical"
+            android:inputType="textMultiLine|textNoSuggestions|textVisiblePassword"
+            android:lineSpacingExtra="4dp" />
 
         <HorizontalScrollView
             android:layout_width="match_parent"
-            android:layout_height="45dp"
-            android:background="#1E1E1E">
+            android:layout_height="48dp"
+            android:background="#1E1E1E"
+            android:scrollbars="none">
             <LinearLayout
                 android:id="@+id/shortcut_layout"
                 android:layout_width="wrap_content"
                 android:layout_height="match_parent"
                 android:gravity="center_vertical"
-                android:paddingHorizontal="10dp"
+                android:paddingHorizontal="8dp"
                 android:orientation="horizontal" />
         </HorizontalScrollView>
     </LinearLayout>
@@ -96,20 +109,26 @@
         android:layout_height="match_parent"
         android:layout_gravity="start"
         android:background="#1A1A1A"
-        android:orientation="vertical">
+        android:orientation="vertical"
+        android:clickable="true"
+        android:focusable="true">
         
         <RelativeLayout
             android:layout_width="match_parent"
             android:layout_height="56dp"
             android:background="#252526"
             android:paddingHorizontal="15dp">
+            
             <TextView
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:layout_centerVertical="true"
                 android:text="EXPLORER"
-                android:textColor="#FFFFFF"
+                android:textColor="#CCCCCC"
+                android:textSize="12sp"
+                android:letterSpacing="0.1"
                 android:textStyle="bold" />
+
             <ImageButton
                 android:id="@+id/btn_add_folder"
                 android:layout_width="40dp"
@@ -121,22 +140,54 @@
                 app:tint="#FFFFFF" />
         </RelativeLayout>
 
+        <LinearLayout
+            android:id="@+id/explorer_nav_container"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:background="#2D2D2D"
+            android:orientation="horizontal"
+            android:padding="4dp">
+            
+            <Button
+                android:id="@+id/btn_back_root"
+                android:layout_width="wrap_content"
+                android:layout_height="32dp"
+                android:text="← ROOT"
+                android:textSize="10sp"
+                android:textColor="#FFFFFF"
+                android:backgroundTint="#3E3E42"
+                android:insetTop="0dp"
+                android:insetBottom="0dp" />
+        </LinearLayout>
+
         <ListView
             android:id="@+id/list_files"
             android:layout_width="match_parent"
             android:layout_height="0dp"
             android:layout_weight="1"
             android:divider="#2D2D2D"
-            android:dividerHeight="1dp" />
+            android:dividerHeight="1dp"
+            android:padding="4dp"
+            android:listSelector="#37373D" />
 
-        <Button
-            android:id="@+id/btn_new_file"
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="+ New File"
-            android:backgroundTint="#007ACC"
-            android:textColor="#FFFFFF"
-            android:layout_margin="10dp" />
+            android:orientation="vertical"
+            android:padding="10dp"
+            android:background="#1A1A1A">
+            
+            <Button
+                android:id="@+id/btn_new_file"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="+ New File"
+                android:textAllCaps="false"
+                android:backgroundTint="#007ACC"
+                android:textColor="#FFFFFF"
+                android:textSize="13sp" />
+        </LinearLayout>
     </LinearLayout>
 
 </androidx.drawerlayout.widget.DrawerLayout>
+            
