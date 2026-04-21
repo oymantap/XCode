@@ -18,7 +18,6 @@ import com.google.android.material.tabs.TabLayout
 
 class MainActivity : AppCompatActivity() {
 
-    // Ganti EditText ke WebView untuk Ace Editor
     private lateinit var editorWebView: WebView
     private lateinit var listFiles: ListView
     private lateinit var tabLayout: TabLayout
@@ -40,17 +39,17 @@ class MainActivity : AppCompatActivity() {
         setupAceEditor()
         setupExplorer()
         setupTabs()
+        setupShortcuts() // GUE PANGGIL BIAR SHORTCUT GAK ILANG
         loadFoldersFromPrefs()
     }
 
     private fun setupAceEditor() {
-        editorWebView.settings.javaScriptEnabled = true
-        editorWebView.settings.domStorageEnabled = true
-        editorWebView.webViewClient = object : WebViewClient() {
-            override fun onPageFinished(view: WebView?, url: String?) {
-                // Editor siap digunakan
-            }
+        editorWebView.settings.apply {
+            javaScriptEnabled = true
+            domStorageEnabled = true
+            allowFileAccess = true
         }
+        editorWebView.webViewClient = WebViewClient()
         editorWebView.loadUrl("file:///android_asset/editor.html")
     }
 
@@ -59,11 +58,9 @@ class MainActivity : AppCompatActivity() {
             startActivityForResult(Intent(Intent.ACTION_OPEN_DOCUMENT_TREE), 1001)
         }
         
-        // SAVE: Ambil kode dari Ace Editor
         findViewById<ImageButton>(R.id.btn_save).setOnClickListener {
             val currentUri = tabUris[tabLayout.selectedTabPosition] ?: return@setOnClickListener
             editorWebView.evaluateJavascript("getCode()") { code ->
-                // Bersihkan quote dari JS evaluate
                 val cleanCode = code.trim('"').replace("\\n", "\n").replace("\\'", "'").replace("\\\\", "\\")
                 contentResolver.openOutputStream(currentUri, "wt")?.use { 
                     it.write(cleanCode.toByteArray()) 
@@ -84,7 +81,6 @@ class MainActivity : AppCompatActivity() {
         findViewById<ImageButton>(R.id.btn_open_drawer).setOnClickListener { drawerLayout.openDrawer(Gravity.LEFT) }
         findViewById<Button>(R.id.btn_new_file).setOnClickListener { showCreateFileDialog() }
         
-        // Fitur Back ke Home/Root
         findViewById<Button>(R.id.btn_back_root)?.setOnClickListener {
             currentFolder = null
             refreshListView()
@@ -93,23 +89,19 @@ class MainActivity : AppCompatActivity() {
 
     private fun refreshListView() {
         val displayList = mutableListOf<String>()
-        val files = if (currentFolder == null) {
-            rootFolders.toTypedArray()
-        } else {
+        val files = if (currentFolder == null) rootFolders.toTypedArray() else {
             displayList.add("← [ BACK ]")
             currentFolder?.listFiles() ?: emptyArray()
         }
-
         files.forEach { if (it.name != null) displayList.add((if (it.isDirectory) "📁 " else "📄 ") + it.name) }
 
-        val adapter = object : ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, displayList) {
+        listFiles.adapter = object : ArrayAdapter<String>(this, android.R.layout.simple_list_item_1, displayList) {
             override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
                 val v = super.getView(position, convertView, parent)
                 (v as TextView).setTextColor(Color.WHITE)
                 return v
             }
         }
-        listFiles.adapter = adapter
         
         listFiles.setOnItemClickListener { _, _, position, _ ->
             if (currentFolder != null && position == 0) {
@@ -117,17 +109,10 @@ class MainActivity : AppCompatActivity() {
                 refreshListView()
                 return@setOnItemClickListener
             }
-
             val actualPos = if (currentFolder == null) position else position - 1
             val selected = files[actualPos]
-            
-            if (selected.isDirectory) {
-                currentFolder = selected
-                refreshListView()
-            } else {
-                openFileWithTab(selected)
-                drawerLayout.closeDrawers()
-            }
+            if (selected.isDirectory) { currentFolder = selected; refreshListView() }
+            else { openFileWithTab(selected); drawerLayout.closeDrawers() }
         }
     }
 
@@ -141,48 +126,65 @@ class MainActivity : AppCompatActivity() {
 
         val content = contentResolver.openInputStream(file.uri)?.bufferedReader()?.use { it.readText() } ?: ""
         val newTab = tabLayout.newTab()
-        
-        // FIXED: Pake TypedValue biar build nggak gagal
-        val tabView = TextView(this).apply {
+        newTab.customView = TextView(this).apply {
             text = "${file.name}  ✕"
             setTextColor(Color.WHITE)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
         }
-        newTab.customView = tabView
-
         tabLayout.addTab(newTab, true)
-        val pos = newTab.position
-        tabUris[pos] = file.uri
+        tabUris[newTab.position] = file.uri
         
-        // Deteksi bahasa buat Ace Editor
+        // SUPPORT BANYAK BAHASA
         val ext = file.name?.substringAfterLast(".", "html") ?: "html"
         val mode = when(ext) {
             "js" -> "javascript"
+            "ts" -> "typescript"
+            "jsx", "tsx" -> "jsx"
+            "py" -> "python"
+            "json" -> "json"
             "css" -> "css"
             else -> "html"
         }
         
-        val escaped = content.replace("'", "\\'").replace("\n", "\\n")
+        val escaped = content.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n")
         editorWebView.evaluateJavascript("setCode('$escaped', '$mode')", null)
+    }
+
+    private fun setupShortcuts() {
+        val sc = findViewById<LinearLayout>(R.id.shortcut_layout)
+        sc.removeAllViews() // Bersihin dulu biar kaga double
+        val items = arrayOf("!", "TAB", "<", ">", "/", "{", "}", "(", ")", ";", "*", "+", "-", "=", "\"", "'")
+        items.forEach { label ->
+            val b = Button(this).apply {
+                text = label
+                setTextColor(Color.WHITE)
+                setBackgroundColor(0)
+            }
+            b.setOnClickListener { 
+                if (label == "TAB") editorWebView.evaluateJavascript("editor.insert('\\t')", null)
+                else editorWebView.evaluateJavascript("editor.insert('$label')", null)
+            }
+            sc.addView(b)
+        }
     }
 
     private fun setupTabs() {
         tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
-                // Logic ambil content dari map jika perlu (persistent state)
+                val fileName = (tab?.customView as? TextView)?.text.toString()
+                findViewById<ImageButton>(R.id.btn_play).visibility = if (fileName.contains(".html")) View.VISIBLE else View.GONE
             }
             override fun onTabUnselected(tab: TabLayout.Tab?) {}
             override fun onTabReselected(tab: TabLayout.Tab?) {
                 if (tabLayout.tabCount > 1) {
                     val p = tab?.position ?: return
-                    tabUris.remove(p)
-                    tabLayout.removeTabAt(p)
+                    tabUris.remove(p); tabLayout.removeTabAt(p)
                 }
             }
         })
     }
 
-    // Persistence Logic
+    // Persistence & Activity Results tetap sama kodenya
     private fun saveFoldersToPrefs() {
         val uris = rootFolders.map { it.uri.toString() }.toSet()
         getSharedPreferences("XCode", Context.MODE_PRIVATE).edit().putStringSet("root_uris", uris).apply()
@@ -201,40 +203,17 @@ class MainActivity : AppCompatActivity() {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == 1001 && resultCode == RESULT_OK) {
-            val uri = data?.data ?: return
-            contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-            DocumentFile.fromTreeUri(this, uri)?.let {
-                rootFolders.add(it)
-                saveFoldersToPrefs()
-                refreshListView()
+            data?.data?.let { uri ->
+                contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                DocumentFile.fromTreeUri(this, uri)?.let { rootFolders.add(it); saveFoldersToPrefs(); refreshListView() }
             }
         }
     }
 
     private fun showCreateFileDialog() {
         val input = EditText(this)
-        AlertDialog.Builder(this).setTitle("New File").setView(input)
-            .setPositiveButton("Create") { _, _ ->
-                currentFolder?.createFile("text/plain", input.text.toString())
-                refreshListView()
-            }.show()
-    }
-
-    private fun setupShortcuts() {
-        val sc = findViewById<LinearLayout>(R.id.shortcut_layout)
-        val items = arrayOf("!", "TAB", "<", ">", "/", "{", "}", "(", ")", ";", "*", "+", "-", "=", "\"", "'")
-        items.forEach { label ->
-            val b = Button(this).apply {
-                text = label
-                setTextColor(Color.WHITE)
-                setBackgroundColor(0)
-            }
-            b.setOnClickListener { 
-                // Insert shortcut via JS ke Ace Editor
-                editorWebView.evaluateJavascript("editor.insert('$label')", null)
-            }
-            sc.addView(b)
-        }
+        AlertDialog.Builder(this).setTitle("New File").setView(input).setPositiveButton("Create") { _, _ ->
+            currentFolder?.createFile("text/plain", input.text.toString()); refreshListView()
+        }.show()
     }
 }
-
