@@ -1,79 +1,129 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.drawerlayout.widget.DrawerLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/drawer_layout"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#0D0D0D"
-    android:orientation="vertical">
+    android:background="#0D0D0D">
 
-    <RelativeLayout
+    <LinearLayout
         android:layout_width="match_parent"
-        android:layout_height="56dp"
-        android:background="#1E1E1E"
-        android:paddingHorizontal="15dp">
-        
-        <TextView
-            android:layout_width="wrap_content"
+        android:layout_height="match_parent"
+        android:orientation="vertical">
+
+        <RelativeLayout
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:background="#1E1E1E"
+            android:paddingHorizontal="10dp">
+            <ImageButton
+                android:id="@+id/btn_open_drawer"
+                android:layout_width="48dp"
+                android:layout_height="48dp"
+                android:layout_centerVertical="true"
+                android:background="?attr/selectableItemBackgroundBorderless"
+                android:src="@android:drawable/ic_menu_sort_by_size"
+                app:tint="#FFFFFF" />
+            <TextView
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_centerInParent="true"
+                android:text="XCode Pro"
+                android:textColor="#FFFFFF"
+                android:textStyle="bold" />
+            <LinearLayout
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_alignParentEnd="true"
+                android:layout_centerVertical="true">
+                <ImageButton
+                    android:id="@+id/btn_save"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@android:drawable/ic_menu_save"
+                    app:tint="#007ACC" />
+                <ImageButton
+                    android:id="@+id/btn_play"
+                    android:layout_width="40dp"
+                    android:layout_height="40dp"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:src="@android:drawable/ic_media_play"
+                    app:tint="#4CAF50" />
+            </LinearLayout>
+        </RelativeLayout>
+
+        <com.google.android.material.tabs.TabLayout
+            android:id="@+id/tab_layout"
+            android:layout_width="match_parent"
+            android:layout_height="40dp"
+            android:background="#1E1E1E"
+            app:tabIndicatorColor="#007ACC"
+            app:tabSelectedTextColor="#FFFFFF"
+            app:tabTextColor="#808080"
+            app:tabMode="scrollable" />
+
+        <EditText
+            android:id="@+id/editor"
+            android:layout_width="match_parent"
+            android:layout_height="0dp"
+            android:layout_weight="1"
+            android:background="#0D0D0D"
+            android:fontFamily="monospace"
+            android:gravity="top"
+            android:padding="12dp"
+            android:textColor="#CE9178"
+            android:textSize="14sp"
+            android:inputType="textMultiLine|textNoSuggestions" />
+
+        <HorizontalScrollView
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_centerVertical="true"
-            android:text="XCode Pro"
+            android:background="#1E1E1E">
+            <LinearLayout
+                android:id="@+id/shortcut_layout"
+                android:layout_width="wrap_content"
+                android:layout_height="45dp"
+                android:gravity="center_vertical"
+                android:paddingHorizontal="8dp"
+                android:orientation="horizontal" />
+        </HorizontalScrollView>
+    </LinearLayout>
+
+    <LinearLayout
+        android:id="@+id/nav_view"
+        android:layout_width="300dp"
+        android:layout_height="match_parent"
+        android:layout_gravity="start"
+        android:background="#1A1A1A"
+        android:orientation="vertical"
+        android:clickable="true"
+        android:focusable="true">
+        <TextView
+            android:layout_width="match_parent"
+            android:layout_height="56dp"
+            android:background="#252526"
+            android:gravity="center_vertical"
+            android:paddingHorizontal="15dp"
+            android:text="Penjelajah Berkas"
             android:textColor="#FFFFFF"
             android:textStyle="bold" />
-
-        <LinearLayout
-            android:layout_width="wrap_content"
+        <TextView
+            android:id="@+id/tv_current_path"
+            android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:layout_alignParentEnd="true"
-            android:layout_centerVertical="true">
-            <ImageButton
-                android:id="@+id/btn_folder"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:src="@android:drawable/ic_menu_save"
-                app:tint="#007ACC" />
-            <ImageButton
-                android:id="@+id/btn_play"
-                android:layout_width="40dp"
-                android:layout_height="40dp"
-                android:background="?attr/selectableItemBackgroundBorderless"
-                android:src="@android:drawable/ic_media_play"
-                app:tint="#4CAF50" />
-        </LinearLayout>
-    </RelativeLayout>
+            android:background="#1E1E1E"
+            android:padding="10dp"
+            android:text="/"
+            android:textColor="#808080"
+            android:textSize="12sp" />
+        <ListView
+            android:id="@+id/list_files"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:divider="#2D2D2D"
+            android:dividerHeight="0.5dp" />
+    </LinearLayout>
 
-    <com.google.android.material.tabs.TabLayout
-        android:id="@+id/tab_layout"
-        android:layout_width="match_parent"
-        android:layout_height="40dp"
-        android:background="#1E1E1E"
-        app:tabIndicatorColor="#007ACC"
-        app:tabSelectedTextColor="#FFFFFF"
-        app:tabTextColor="#808080" />
-
-    <EditText
-        android:id="@+id/editor"
-        android:layout_width="match_parent"
-        android:layout_height="0dp"
-        android:layout_weight="1"
-        android:background="#0D0D0D"
-        android:gravity="top"
-        android:padding="12dp"
-        android:fontFamily="monospace"
-        android:textColor="#CE9178"
-        android:textSize="14sp" />
-
-    <HorizontalScrollView
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:background="#1E1E1E">
-        <LinearLayout
-            android:id="@+id/shortcut_layout"
-            android:layout_width="wrap_content"
-            android:layout_height="45dp"
-            android:paddingHorizontal="8dp"
-            android:gravity="center_vertical"
-            android:orientation="horizontal" />
-    </HorizontalScrollView>
-</LinearLayout>
-        
+</androidx.drawerlayout.widget.DrawerLayout>
+            
