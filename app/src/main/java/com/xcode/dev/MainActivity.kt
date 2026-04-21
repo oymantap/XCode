@@ -10,6 +10,7 @@ import android.util.TypedValue
 import android.view.*
 import android.webkit.*
 import android.widget.*
+import android.view.Gravity
 import androidx.appcompat.app.AppCompatActivity
 import androidx.documentfile.provider.DocumentFile
 import androidx.drawerlayout.widget.DrawerLayout
