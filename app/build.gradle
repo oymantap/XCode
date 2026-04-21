@@ -33,14 +33,13 @@ android {
 }
 
 dependencies {
-    // Editor Inti (0.23.0 sudah di MavenCentral)
-    implementation 'io.github.Rosemoe.sora-editor:editor:0.23.0'
+    implementation 'io.github.Rosemoe:sora-editor:0.23.0'
+    implementation 'io.github.Rosemoe:language-python:0.23.0'
+    implementation 'io.github.Rosemoe:language-html:0.23.0'
     
-    // Perbaikan Nama Library Bahasa (Tanpa strip di tengah Rosemoe)
-    implementation 'io.github.Rosemoe.sora-editor:language-python:0.23.0'
-    implementation 'io.github.Rosemoe.sora-editor:language-html:0.23.0'
+    // TAMBAHKAN INI buat React, TS, JSX, dll.
+    implementation 'io.github.Rosemoe:language-textmate:0.23.0'
     
-    // Support Android
     implementation 'androidx.core:core-ktx:1.12.0'
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.11.0'
