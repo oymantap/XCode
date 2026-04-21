@@ -39,30 +39,21 @@ class MainActivity : AppCompatActivity() {
         val btnNewFile = findViewById<Button>(R.id.btn_new_file)
         val shortcutLayout = findViewById<LinearLayout>(R.id.shortcut_layout)
 
-        // 1. Hubungkan Folder (Pilih Media/Folder)
         btnAddFolder.setOnClickListener {
             val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
             startActivityForResult(intent, 1001)
         }
 
-        // 2. Tambah File Baru
         btnNewFile.setOnClickListener { showCreateFileDialog() }
 
-        // 3. Editor Save & Play
         findViewById<ImageButton>(R.id.btn_save).setOnClickListener { saveFile() }
         btnPlay.setOnClickListener { runWebView() }
         findViewById<ImageButton>(R.id.btn_open_drawer).setOnClickListener { drawerLayout.openDrawer(Gravity.LEFT) }
 
-        // 4. Tab & Shortcut
         setupTabs()
         setupShortcuts(shortcutLayout)
         
-        // 5. Context Menu (Rename/Hapus)
         registerForContextMenu(listFiles)
-        listFiles.setOnItemLongClickListener { _, _, pos, _ ->
-            showFileOptions(pos)
-            true
-        }
     }
 
     private fun setupTabs() {
@@ -125,6 +116,8 @@ class MainActivity : AppCompatActivity() {
     private fun openFile(file: DocumentFile) {
         val content = contentResolver.openInputStream(file.uri)?.bufferedReader()?.use { it.readText() } ?: ""
         addTab(file.name ?: "file", file.uri)
+        val currentPos = tabLayout.selectedTabPosition
+        fileContents[currentPos] = content
         editor.setText(content)
     }
 
@@ -148,7 +141,8 @@ class MainActivity : AppCompatActivity() {
         val file = rootFolder?.listFiles()?.get(pos) ?: return
         val options = arrayOf("Rename", "Delete")
         AlertDialog.Builder(this).setItems(options) { _, which ->
-            if (which == 0) { // Rename logic
+            if (which == 0) { 
+                // Rename logic can be added here
             } else {
                 file.delete()
                 refreshListView()
@@ -157,29 +151,30 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun runWebView() {
-        // Jangan pake AlertDialog, langsung pindah layar (Activity)
         val intent = Intent(this, PreviewActivity::class.java)
-        
-        // Kirim kode dari editor ke layar preview
         intent.putExtra("html_code", editor.text.toString())
-        
         startActivity(intent)
     }
 
     private fun setupShortcuts(layout: LinearLayout) {
-        val items = arrayOf("!", "TAB", "<", ">", "/", "\", "{", "}", "(", ")", ";", ":"", "+", "*", "=", "?", "|", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0", "XCode")
+        // FIX: Tanda kutip dan escape character sudah dibenarkan
+        val items = arrayOf("!", "TAB", "<", ">", "/", "\\", "{", "}", "(", ")", ";", ":", "\"", "+", "*", "=", "?", "|", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0")
         items.forEach { label ->
             val btn = Button(this).apply {
                 text = label
                 layoutParams = LinearLayout.LayoutParams(-2, -1)
                 setBackgroundColor(0)
                 setTextColor(-1)
+                isAllCaps = false
             }
             btn.setOnClickListener {
                 if (label == "TAB") handleTab() else editor.text.insert(editor.selectionStart, label)
             }
             layout.addView(btn)
-            layout.addView(View(this).apply { layoutParams = LinearLayout.LayoutParams(2, -1); setBackgroundColor(0x33FFFFFF) }) // Pembatas |
+            layout.addView(View(this).apply { 
+                layoutParams = LinearLayout.LayoutParams(2, -1)
+                setBackgroundColor(0x33FFFFFF) 
+            })
         }
     }
 
@@ -187,7 +182,10 @@ class MainActivity : AppCompatActivity() {
         val start = editor.selectionStart
         if (start > 0 && editor.text.substring(start - 1, start) == "!") {
             editor.text.delete(start - 1, start)
-            editor.text.insert(editor.selectionStart, "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <title>Document</title>\n</head>\n<body>\n\n</body>\n</html>")
-        } else editor.text.insert(editor.selectionStart, "    ")
+            val html = "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <title>Document</title>\n</head>\n<body>\n\n</body>\n</html>"
+            editor.text.insert(editor.selectionStart, html)
+        } else {
+            editor.text.insert(editor.selectionStart, "    ")
+        }
     }
 }
