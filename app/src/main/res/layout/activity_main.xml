@@ -2,10 +2,30 @@
 <RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#000000"> <io.github.rosemoe.sora.widget.CodeEditor
+    android:background="#000000">
+
+    <io.github.rosemoe.sora.widget.CodeEditor
         android:id="@+id/editor"
         android:layout_width="match_parent"
-        android:layout_height="match_parent" />
+        android:layout_height="match_parent"
+        android:layout_above="@+id/shortcut_scroll" />
+
+    <HorizontalScrollView
+        android:id="@+id/shortcut_scroll"
+        android:layout_width="match_parent"
+        android:layout_height="50dp"
+        android:layout_alignParentBottom="true"
+        android:background="#121212"
+        android:scrollbars="none">
+
+        <LinearLayout
+            android:id="@+id/shortcut_layout"
+            android:layout_width="wrap_content"
+            android:layout_height="match_parent"
+            android:orientation="horizontal"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp"
+            android:gravity="center_vertical" />
+    </HorizontalScrollView>
 
 </RelativeLayout>
-
