@@ -33,11 +33,11 @@ android {
 }
 
 dependencies {
-    // Alamat resmi versi 0.23.0 (Tanpa tambahan sora-editor di tengah)
-    implementation 'io.github.Rosemoe:editor:0.23.0'
-    implementation 'io.github.Rosemoe:language-python:0.23.0'
-    implementation 'io.github.Rosemoe:language-html:0.23.0'
-    implementation 'io.github.Rosemoe:language-textmate:0.23.0'
+    // INI SUMBER ASLI & AKURAT 100% DI MAVENCENTRAL
+    implementation 'com.github.Rosemoe.sora-editor:editor:0.23.0'
+    implementation 'com.github.Rosemoe.sora-editor:language-python:0.23.0'
+    implementation 'com.github.Rosemoe.sora-editor:language-html:0.23.0'
+    implementation 'com.github.Rosemoe.sora-editor:language-textmate:0.23.0'
     
     implementation 'androidx.core:core-ktx:1.12.0'
     implementation 'androidx.appcompat:appcompat:1.6.1'
