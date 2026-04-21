@@ -16,10 +16,13 @@ jobs:
           distribution: 'temurin'
 
       # INI SOLUSINYA: GitHub akan membuatkan file .jar yang hilang itu
-      - name: Repair Gradle Wrapper
+      - name: Repair and Config Gradle
         run: |
           gradle wrapper --gradle-version 8.7
+          echo "android.useAndroidX=true" > gradle.properties
+          echo "android.enableJetifier=true" >> gradle.properties
           chmod +x gradlew
+          
 
       - name: Build Release APK
         run: ./gradlew assembleRelease
