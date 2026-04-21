@@ -9,35 +9,39 @@ import android.webkit.WebViewClient
 import androidx.appcompat.app.AppCompatActivity
 
 class PreviewActivity : AppCompatActivity() {
+    
+    private lateinit var mainWebView: WebView
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         
-        // 1. SET STATUS BAR BLACK (Biar sinkron sama editor)
+        // 1. SET STATUS BAR BLACK
         window.statusBarColor = Color.parseColor("#1E1E1E")
-        window.decorView.systemUiVisibility = 0 // Teks status bar putih
+        @Suppress("DEPRECATION")
+        window.decorView.systemUiVisibility = 0 
 
-        val webView = WebView(this)
-        setContentView(webView)
+        mainWebView = WebView(this)
+        setContentView(mainWebView)
         
         val code = intent.getStringExtra("html_code") ?: "<h1>Gada kode buat di-run, Rycl!</h1>"
         
         // 2. KONFIGURASI WEBVIEW PRO
-        webView.settings.apply {
+        mainWebView.settings.apply {
             javaScriptEnabled = true
-            domStorageEnabled = true // Biar bisa simpan cache/localstorage web
+            domStorageEnabled = true 
             useWideViewPort = true
             loadWithOverviewMode = true
         }
 
-        // 3. SET CLIENT (Biar link localhost tetep di sini)
-        webView.webViewClient = object : WebViewClient() {
+        // 3. SET CLIENT
+        mainWebView.webViewClient = object : WebViewClient() {
             override fun shouldOverrideUrlLoading(view: WebView?, request: WebResourceRequest?): Boolean {
-                return false // Handle semua URL di dalam WebView ini
+                return false 
             }
         }
 
         // 4. LOAD SEBAGAI LOCALHOST:7777
-        webView.loadDataWithBaseURL(
+        mainWebView.loadDataWithBaseURL(
             "http://localhost:7777/", 
             code, 
             "text/html", 
@@ -46,11 +50,9 @@ class PreviewActivity : AppCompatActivity() {
         )
     }
 
-    // Biar kalo di-back gak langsung keluar app kalo lagi browsing di preview
     override fun onBackPressed() {
-        val webView = contentView as? WebView
-        if (webView?.canGoBack() == true) {
-            webView.goBack()
+        if (mainWebView.canGoBack()) {
+            mainWebView.goBack()
         } else {
             super.onBackPressed()
         }
