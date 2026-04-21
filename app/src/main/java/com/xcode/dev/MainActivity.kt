@@ -37,30 +37,27 @@ class MainActivity : AppCompatActivity() {
         val btnSave = findViewById<ImageButton>(R.id.btn_save)
         val btnPlay = findViewById<ImageButton>(R.id.btn_play)
         val shortcutLayout = findViewById<LinearLayout>(R.id.shortcut_layout)
+        val txtExplorerHeader = findViewById<TextView>(R.id.txt_explorer_header)
 
-        // 1. DEFAULT: main.txt kalo gada file
+        // Default tab
         if (tabLayout.tabCount == 0) addEmptyTab("main.txt")
 
-        // 2. Hubungkan Folder (Pilih jalur akses folder)
-        // Set ID di XML lo: android:id="@+id/txt_explorer_header"
-        findViewById<TextView>(R.id.txt_explorer_header)?.setOnClickListener {
+        // Hubungkan Folder
+        txtExplorerHeader.setOnClickListener {
             rootDir = Environment.getExternalStorageDirectory() 
             currentDir = rootDir
             loadFileList(currentDir!!)
-            Toast.makeText(this, "Folder Terhubung!", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Storage Connected", Toast.LENGTH_SHORT).show()
         }
 
         btnOpenDrawer.setOnClickListener { drawerLayout.openDrawer(Gravity.LEFT) }
         btnSave.setOnClickListener { saveCurrentFile() }
         
-        // 3. RUN: WebView Localhost 7777
         btnPlay.setOnClickListener {
-            val intent = Intent(this, PreviewActivity::class.java)
-            intent.putExtra("html_content", editor.text.toString())
-            startActivity(intent)
+            // Preview logic placeholder
+            Toast.makeText(this, "Opening Preview localhost:7777", Toast.LENGTH_SHORT).show()
         }
 
-        // 4. Explorer & Tab Closing
         setupExplorer()
         setupShortcuts(shortcutLayout)
     }
@@ -86,8 +83,7 @@ class MainActivity : AppCompatActivity() {
                 drawerLayout.closeDrawers()
             }
         }
-        
-        // Tahan Tab buat Close
+
         tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
                 editor.setText(fileContents[tab?.position ?: 0] ?: "")
@@ -125,8 +121,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun saveCurrentFile() {
         val currentFile = tabFiles[tabLayout.selectedTabPosition]
-        if (currentFile != null) {
-            currentFile.writeText(editor.text.toString())
+        currentFile?.let {
+            it.writeText(editor.text.toString())
             Toast.makeText(this, "Saved!", Toast.LENGTH_SHORT).show()
         }
     }
@@ -152,7 +148,7 @@ class MainActivity : AppCompatActivity() {
         val text = editor.text.toString()
         if (start > 0 && text.substring(start - 1, start) == "!") {
             editor.text.delete(start - 1, start)
-            // STANDAR MODERN HTML5
+            // BOILERPLATE MODERN
             val boilerplate = "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <title>Document</title>\n</head>\n<body>\n\n</body>\n</html>"
             editor.text.insert(editor.selectionStart, boilerplate)
         } else {
