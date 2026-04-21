@@ -2,8 +2,9 @@
 <resources>
     <style name="Theme.XCode" parent="Theme.Material3.DayNight.NoActionBar">
         <item name="colorPrimary">#007ACC</item>
-        <item name="android:windowBackground">#121212</item>
-        <item name="android:statusBarColor">#121212</item>
+        <item name="android:windowBackground">#0D0D0D</item>
+        <item name="android:statusBarColor">#1E1E1E</item>
+        <item name="android:navigationBarColor">#0D0D0D</item>
+        <item name="colorAccent">#007ACC</item>
     </style>
 </resources>
-
