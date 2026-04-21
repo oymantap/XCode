@@ -1,0 +1,48 @@
+name: XCode Mega Project Build
+
+on: [push, workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Set up JDK 21
+        uses: actions/setup-java@v4
+        with:
+          java-version: '21'
+          distribution: 'temurin'
+
+      # INI SOLUSINYA: GitHub akan membuatkan file .jar yang hilang itu
+      - name: Repair and Config Gradle
+        run: |
+          gradle wrapper --gradle-version 8.7
+          echo "android.useAndroidX=true" > gradle.properties
+          echo "android.enableJetifier=true" >> gradle.properties
+          chmod +x gradlew
+          
+
+      - name: Build Release APK
+        run: ./gradlew assembleRelease
+
+      - name: Sign Android Release
+        uses: r0adkll/sign-android-release@v1
+        id: sign_app
+        with:
+          releaseDirectory: app/build/outputs/apk/release
+          signingKeyBase64: ${{ secrets.SIGNING_KEY }}
+          alias: ${{ secrets.ALIAS }}
+          keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
+          keyPassword: ${{ secrets.KEY_PASSWORD }}
+        env:
+          # Trik 2026: Arahkan ke build-tools terbaru (biasanya 34.0.0 atau 35.0.0)
+          BUILD_TOOLS_VERSION: "34.0.0" 
+  
+
+      - name: Upload Signed APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: XCode-Prof
+          path: ${{ steps.sign_app.outputs.signedReleaseFile }}
