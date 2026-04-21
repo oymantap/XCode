@@ -36,6 +36,10 @@ jobs:
           alias: ${{ secrets.ALIAS }}
           keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
           keyPassword: ${{ secrets.KEY_PASSWORD }}
+        env:
+          # Trik 2026: Arahkan ke build-tools terbaru (biasanya 34.0.0 atau 35.0.0)
+          BUILD_TOOLS_VERSION: "34.0.0" 
+  
 
       - name: Upload Signed APK
         uses: actions/upload-artifact@v4
