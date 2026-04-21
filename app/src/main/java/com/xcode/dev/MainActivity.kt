@@ -1,7 +1,6 @@
 package com.xcode.dev
 
 import android.content.Intent
-import android.net.Uri
 import android.os.Bundle
 import android.os.Environment
 import android.view.Gravity
@@ -19,7 +18,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tvCurrentPath: TextView
     private lateinit var tabLayout: TabLayout
     
-    private var rootDir: File? = null // Folder yang dihubungkan
+    private var rootDir: File? = null 
     private var currentDir: File? = null
     private val fileContents = mutableMapOf<Int, String>()
     private val tabFiles = mutableMapOf<Int, File?>()
@@ -39,16 +38,13 @@ class MainActivity : AppCompatActivity() {
         val btnPlay = findViewById<ImageButton>(R.id.btn_play)
         val shortcutLayout = findViewById<LinearLayout>(R.id.shortcut_layout)
 
-        // 1. DEFAULT FILE (main.txt)
-        if (tabLayout.tabCount == 0) {
-            addEmptyTab("main.txt")
-        }
+        // 1. DEFAULT: main.txt kalo gada file
+        if (tabLayout.tabCount == 0) addEmptyTab("main.txt")
 
-        // 2. Hubungkan Folder (Klik Header Explorer)
-        findViewById<TextView>(R.id.txt_explorer_header).setOnClickListener {
-            // Logic: Pilih folder lewat SAF (Storage Access Framework) 
-            // Untuk simple-nya gue set ke Home dulu, lo bisa ganti ke Intent Picker
-            rootDir = Environment.getExternalStorageDirectory()
+        // 2. Hubungkan Folder (Pilih jalur akses folder)
+        // Set ID di XML lo: android:id="@+id/txt_explorer_header"
+        findViewById<TextView>(R.id.txt_explorer_header)?.setOnClickListener {
+            rootDir = Environment.getExternalStorageDirectory() 
             currentDir = rootDir
             loadFileList(currentDir!!)
             Toast.makeText(this, "Folder Terhubung!", Toast.LENGTH_SHORT).show()
@@ -57,14 +53,26 @@ class MainActivity : AppCompatActivity() {
         btnOpenDrawer.setOnClickListener { drawerLayout.openDrawer(Gravity.LEFT) }
         btnSave.setOnClickListener { saveCurrentFile() }
         
-        // 3. RUN PREVIEW (WebView Layer)
+        // 3. RUN: WebView Localhost 7777
         btnPlay.setOnClickListener {
             val intent = Intent(this, PreviewActivity::class.java)
-            intent.putExtra("code", editor.text.toString())
+            intent.putExtra("html_content", editor.text.toString())
             startActivity(intent)
         }
 
-        // 4. Explorer Logic
+        // 4. Explorer & Tab Closing
+        setupExplorer()
+        setupShortcuts(shortcutLayout)
+    }
+
+    private fun addEmptyTab(name: String) {
+        val tab = tabLayout.newTab().setText(name)
+        tabLayout.addTab(tab, true)
+        fileContents[tab.position] = ""
+        tabFiles[tab.position] = null
+    }
+
+    private fun setupExplorer() {
         listFiles.setOnItemClickListener { _, _, position, _ ->
             val fileName = listFiles.adapter.getItem(position) as String
             val clickedFile = if (fileName == "..") currentDir?.parentFile ?: currentDir!! 
@@ -78,32 +86,32 @@ class MainActivity : AppCompatActivity() {
                 drawerLayout.closeDrawers()
             }
         }
-
-        // Shortcut setup tetap sama...
-        setupShortcuts(shortcutLayout)
-        setupTabCloseLogic()
-    }
-
-    private fun addEmptyTab(name: String) {
-        val tab = tabLayout.newTab().setText(name)
-        tabLayout.addTab(tab, true)
-        fileContents[tab.position] = ""
-        tabFiles[tab.position] = null
-    }
-
-    private fun setupTabCloseLogic() {
-        // Double klik tab untuk tutup (Standard TabLayout gak punya tombol x bawaan tanpa custom view)
-        // Gue kasih tips: Gunakan tabLayout.getTabAt(i).setCustomView(R.layout.custom_tab) nanti
-        Toast.makeText(this, "Klik tahan tab untuk menutup file", Toast.LENGTH_SHORT).show()
+        
+        // Tahan Tab buat Close
+        tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
+            override fun onTabSelected(tab: TabLayout.Tab?) {
+                editor.setText(fileContents[tab?.position ?: 0] ?: "")
+            }
+            override fun onTabUnselected(tab: TabLayout.Tab?) {
+                fileContents[tab?.position ?: 0] = editor.text.toString()
+            }
+            override fun onTabReselected(tab: TabLayout.Tab?) {
+                if (tabLayout.tabCount > 1) {
+                    val pos = tab!!.position
+                    tabLayout.removeTabAt(pos)
+                    fileContents.remove(pos)
+                    tabFiles.remove(pos)
+                }
+            }
+        })
     }
 
     private fun openFileInTab(file: File) {
         val tab = tabLayout.newTab().setText(file.name)
         tabLayout.addTab(tab, true)
-        val index = tab.position
-        fileContents[index] = file.readText()
-        tabFiles[index] = file
-        editor.setText(fileContents[index])
+        fileContents[tab.position] = file.readText()
+        tabFiles[tab.position] = file
+        editor.setText(fileContents[tab.position])
     }
 
     private fun loadFileList(dir: File) {
@@ -119,11 +127,37 @@ class MainActivity : AppCompatActivity() {
         val currentFile = tabFiles[tabLayout.selectedTabPosition]
         if (currentFile != null) {
             currentFile.writeText(editor.text.toString())
-            Toast.makeText(this, "Tersimpan ke ${currentFile.name}", Toast.LENGTH_SHORT).show()
-        } else {
-            Toast.makeText(this, "Gagal: Ini file temporary (main.txt)", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Saved!", Toast.LENGTH_SHORT).show()
         }
     }
-    
-    // ... Shortcut logic (! + TAB) sama seperti sebelumnya
+
+    private fun setupShortcuts(layout: LinearLayout) {
+        val shortcuts = arrayOf("!", "TAB", "<", ">", "/", "{", "}", "(", ")", ";", "=")
+        shortcuts.forEach { label ->
+            val btn = Button(this).apply {
+                text = label
+                minWidth = 100
+                setTextColor(0xFFFFFFFF.toInt())
+                setBackgroundColor(0x00000000)
+            }
+            btn.setOnClickListener {
+                if (label == "TAB") handleTabShortcut() else editor.text.insert(editor.selectionStart, label)
+            }
+            layout.addView(btn)
+        }
+    }
+
+    private fun handleTabShortcut() {
+        val start = editor.selectionStart
+        val text = editor.text.toString()
+        if (start > 0 && text.substring(start - 1, start) == "!") {
+            editor.text.delete(start - 1, start)
+            // STANDAR MODERN HTML5
+            val boilerplate = "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <title>Document</title>\n</head>\n<body>\n\n</body>\n</html>"
+            editor.text.insert(editor.selectionStart, boilerplate)
+        } else {
+            editor.text.insert(editor.selectionStart, "    ")
+        }
+    }
 }
+
