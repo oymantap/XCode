@@ -33,11 +33,15 @@ android {
 }
 
 dependencies {
+    // Editor Inti
+    implementation 'io.github.Rosemoe.sora-editor:editor:0.23.0'
+    
+    // Buku Panduan Bahasa (Biar error 'langs' hilang)
+    implementation 'io.github.Rosemoe.sora-editor:language-python:0.23.0'
+    implementation 'io.github.Rosemoe.sora-editor:language-html:0.23.0'
+    
+    // Library pendukung lainnya
     implementation 'androidx.core:core-ktx:1.12.0'
     implementation 'androidx.appcompat:appcompat:1.6.1'
     implementation 'com.google.android.material:material:1.11.0'
-    implementation 'androidx.webkit:webkit:1.10.0'
-    // Editor Engine untuk Syntax Highlighting
-    implementation 'io.github.Rosemoe.sora-editor:editor:0.23.0'
 }
-
