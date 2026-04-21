@@ -4,10 +4,10 @@ import android.app.AlertDialog
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.text.*
+import android.text.style.ForegroundColorSpan
 import android.view.Gravity
 import android.view.View
-import android.webkit.WebView
-import android.webkit.WebViewClient
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.documentfile.provider.DocumentFile
@@ -23,8 +23,9 @@ class MainActivity : AppCompatActivity() {
     private lateinit var btnPlay: ImageButton
     
     private var rootFolder: DocumentFile? = null
-    private val fileContents = mutableMapOf<Int, String>()
+    private var currentFolder: DocumentFile? = null
     private val tabUris = mutableMapOf<Int, Uri?>()
+    private val fileContents = mutableMapOf<Int, String>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -35,60 +36,51 @@ class MainActivity : AppCompatActivity() {
         listFiles = findViewById(R.id.list_files)
         tabLayout = findViewById(R.id.tab_layout)
         btnPlay = findViewById(R.id.btn_play)
-        val btnAddFolder = findViewById<ImageButton>(R.id.btn_add_folder)
-        val btnNewFile = findViewById<Button>(R.id.btn_new_file)
-        val shortcutLayout = findViewById<LinearLayout>(R.id.shortcut_layout)
+        
+        setupExplorerButtons()
+        setupTabs()
+        setupShortcuts(findViewById(R.id.shortcut_layout))
+        setupSyntaxHighlighting()
+    }
 
-        btnAddFolder.setOnClickListener {
+    private fun setupExplorerButtons() {
+        findViewById<ImageButton>(R.id.btn_add_folder).setOnClickListener {
             val intent = Intent(Intent.ACTION_OPEN_DOCUMENT_TREE)
             startActivityForResult(intent, 1001)
         }
 
-        btnNewFile.setOnClickListener { showCreateFileDialog() }
-
+        findViewById<Button>(R.id.btn_new_file).setOnClickListener { showCreateFileDialog() }
         findViewById<ImageButton>(R.id.btn_save).setOnClickListener { saveFile() }
         btnPlay.setOnClickListener { runWebView() }
         findViewById<ImageButton>(R.id.btn_open_drawer).setOnClickListener { drawerLayout.openDrawer(Gravity.LEFT) }
-
-        setupTabs()
-        setupShortcuts(shortcutLayout)
-        
-        registerForContextMenu(listFiles)
     }
 
     private fun setupTabs() {
-        if (tabLayout.tabCount == 0) addTab("main.txt", null)
         tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
             override fun onTabSelected(tab: TabLayout.Tab?) {
                 val pos = tab?.position ?: 0
                 editor.setText(fileContents[pos] ?: "")
-                updatePlayButtonVisibility(tab?.text.toString())
+                btnPlay.visibility = if (tab?.text.toString().endsWith(".html")) View.VISIBLE else View.GONE
             }
             override fun onTabUnselected(tab: TabLayout.Tab?) {
                 fileContents[tab?.position ?: 0] = editor.text.toString()
             }
             override fun onTabReselected(tab: TabLayout.Tab?) {
-                if (tabLayout.tabCount > 1) removeTab(tab!!)
+                // Tahan tab atau klik lagi buat tutup (Simulasi tombol X)
+                showCloseTabDialog(tab)
             }
         })
     }
 
-    private fun updatePlayButtonVisibility(fileName: String) {
-        btnPlay.visibility = if (fileName.endsWith(".html")) View.VISIBLE else View.GONE
-    }
-
-    private fun addTab(name: String, uri: Uri?) {
-        val tab = tabLayout.newTab().setText(name)
-        tabLayout.addTab(tab, true)
-        tabUris[tab.position] = uri
-        updatePlayButtonVisibility(name)
-    }
-
-    private fun removeTab(tab: TabLayout.Tab) {
-        val pos = tab.position
-        tabLayout.removeTabAt(pos)
-        tabUris.remove(pos)
-        fileContents.remove(pos)
+    private fun showCloseTabDialog(tab: TabLayout.Tab?) {
+        if (tab == null || tabLayout.tabCount <= 1) return
+        AlertDialog.Builder(this).setMessage("Tutup tab ${tab.text}?")
+            .setPositiveButton("Ya") { _, _ ->
+                val pos = tab.position
+                tabUris.remove(pos)
+                fileContents.remove(pos)
+                tabLayout.removeTabAt(pos)
+            }.setNegativeButton("Batal", null).show()
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
@@ -97,57 +89,83 @@ class MainActivity : AppCompatActivity() {
             val uri = data?.data ?: return
             contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
             rootFolder = DocumentFile.fromTreeUri(this, uri)
+            currentFolder = rootFolder
             refreshListView()
         }
     }
 
     private fun refreshListView() {
-        val names = rootFolder?.listFiles()?.map { it.name ?: "Unknown" } ?: emptyList()
+        val files = currentFolder?.listFiles() ?: emptyArray()
+        val names = mutableListOf<String>()
+        
+        // Tombol Back di List
+        if (currentFolder != rootFolder) names.add("← Kembali")
+
+        files.forEach { 
+            val prefix = if (it.isDirectory) "📁 " else "📄 "
+            names.add(prefix + (it.name ?: "Unknown")) 
+        }
+
         listFiles.adapter = ArrayAdapter(this, android.R.layout.simple_list_item_1, names)
+        
         listFiles.setOnItemClickListener { _, _, i, _ ->
-            val file = rootFolder?.listFiles()?.get(i)
-            if (file != null && file.isFile) {
-                openFile(file)
-                drawerLayout.closeDrawers()
+            var idx = i
+            if (currentFolder != rootFolder) {
+                if (idx == 0) {
+                    currentFolder = currentFolder?.parentFile
+                    refreshListView()
+                    return@setOnItemClickListener
+                }
+                idx-- // Adjust index karena ada tombol back
+            }
+
+            val selected = currentFolder?.listFiles()?.get(idx)
+            if (selected != null) {
+                if (selected.isDirectory) {
+                    currentFolder = selected
+                    refreshListView()
+                } else {
+                    openFileWithFilter(selected)
+                    drawerLayout.closeDrawers()
+                }
             }
         }
     }
 
-    private fun openFile(file: DocumentFile) {
+    private fun openFileWithFilter(file: DocumentFile) {
+        // CEK APAKAH SUDAH TERBUKA (FILTER SPAM TAB)
+        for (i in 0 until tabLayout.tabCount) {
+            if (tabUris[i] == file.uri) {
+                tabLayout.getTabAt(i)?.select()
+                Toast.makeText(this, "File sudah terbuka", Toast.LENGTH_SHORT).show()
+                return
+            }
+        }
+
         val content = contentResolver.openInputStream(file.uri)?.bufferedReader()?.use { it.readText() } ?: ""
-        addTab(file.name ?: "file", file.uri)
-        val currentPos = tabLayout.selectedTabPosition
-        fileContents[currentPos] = content
+        val newTab = tabLayout.newTab().setText(file.name)
+        tabLayout.addTab(newTab, true)
+        
+        val pos = newTab.position
+        tabUris[pos] = file.uri
+        fileContents[pos] = content
         editor.setText(content)
     }
 
     private fun saveFile() {
         val uri = tabUris[tabLayout.selectedTabPosition] ?: return
         contentResolver.openOutputStream(uri, "wt")?.use { it.write(editor.text.toString().toByteArray()) }
-        Toast.makeText(this, "Saved", Toast.LENGTH_SHORT).show()
+        Toast.makeText(this, "Saved!", Toast.LENGTH_SHORT).show()
     }
 
     private fun showCreateFileDialog() {
         val input = EditText(this)
-        AlertDialog.Builder(this).setTitle("New File").setView(input)
-            .setPositiveButton("Create") { _, _ ->
+        AlertDialog.Builder(this).setTitle("File Baru").setView(input)
+            .setPositiveButton("Buat") { _, _ ->
                 val name = input.text.toString()
-                rootFolder?.createFile("*/*", name)
+                currentFolder?.createFile("text/plain", name)
                 refreshListView()
             }.show()
-    }
-
-    private fun showFileOptions(pos: Int) {
-        val file = rootFolder?.listFiles()?.get(pos) ?: return
-        val options = arrayOf("Rename", "Delete")
-        AlertDialog.Builder(this).setItems(options) { _, which ->
-            if (which == 0) { 
-                // Rename logic can be added here
-            } else {
-                file.delete()
-                refreshListView()
-            }
-        }.show()
     }
 
     private fun runWebView() {
@@ -157,8 +175,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupShortcuts(layout: LinearLayout) {
-        // FIX: Tanda kutip dan escape character sudah dibenarkan
-        val items = arrayOf("!", "TAB", "<", ">", "/", "\\", "{", "}", "(", ")", ";", ":", "\"", "+", "*", "=", "?", "|", "1", "2", "3", "4", "5", "6", "7", "8", "9", "0")
+        val items = arrayOf("!", "TAB", "<", ">", "/", "\\", "{", "}", "(", ")", ";", ":", "\"", "+", "*", "=", "?", "|")
         items.forEach { label ->
             val btn = Button(this).apply {
                 text = label
@@ -171,10 +188,6 @@ class MainActivity : AppCompatActivity() {
                 if (label == "TAB") handleTab() else editor.text.insert(editor.selectionStart, label)
             }
             layout.addView(btn)
-            layout.addView(View(this).apply { 
-                layoutParams = LinearLayout.LayoutParams(2, -1)
-                setBackgroundColor(0x33FFFFFF) 
-            })
         }
     }
 
@@ -182,10 +195,27 @@ class MainActivity : AppCompatActivity() {
         val start = editor.selectionStart
         if (start > 0 && editor.text.substring(start - 1, start) == "!") {
             editor.text.delete(start - 1, start)
-            val html = "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <title>Document</title>\n</head>\n<body>\n\n</body>\n</html>"
-            editor.text.insert(editor.selectionStart, html)
-        } else {
-            editor.text.insert(editor.selectionStart, "    ")
-        }
+            editor.text.insert(editor.selectionStart, "<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n  <meta charset=\"UTF-8\">\n  <title>Document</title>\n</head>\n<body>\n\n</body>\n</html>")
+        } else editor.text.insert(editor.selectionStart, "    ")
+    }
+
+    private fun setupSyntaxHighlighting() {
+        editor.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, p1: Int, p2: Int, p3: Int) {}
+            override fun onTextChanged(s: CharSequence?, p1: Int, p2: Int, p3: Int) {}
+            override fun afterTextChanged(s: Editable?) {
+                editor.removeTextChangedListener(this)
+                val text = s.toString()
+                s?.clearSpans()
+                
+                // Regex sederhana buat HTML tags
+                val tagPattern = "<[^>]*>".toRegex()
+                tagPattern.findAll(text).forEach {
+                    s?.setSpan(ForegroundColorSpan(0xFF569CD6.toInt()), it.range.first, it.range.last + 1, Spannable.SPAN_EXCLUSIVE_EXCLUSIVE)
+                }
+                editor.addTextChangedListener(this)
+            }
+        })
     }
 }
+
