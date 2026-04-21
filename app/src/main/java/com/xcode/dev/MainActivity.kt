@@ -2,53 +2,53 @@ package com.xcode.dev
 
 import android.os.Bundle
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
 import androidx.appcompat.app.AppCompatActivity
-import com.ahmadaghazadeh.editor.widget.CodeEditor
 
 class MainActivity : AppCompatActivity() {
 
-    private lateinit var editor: CodeEditor
+    private lateinit var editor: EditText
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
+        // Cari EditText standar di layout
         editor = findViewById(R.id.editor)
         val shortcutLayout = findViewById<LinearLayout>(R.id.shortcut_layout)
 
-        // Setup Editor
-        editor.setTheme(com.ahmadaghazadeh.editor.processor.utils.Theme.DARCULA)
-        editor.setType(com.ahmadaghazadeh.editor.processor.utils.Language.PYTHON)
-        editor.content = "" // Awal kosong
-
-        // Shortcut Bar
+        // Shortcut Bar ala Acode
         val shortcuts = arrayOf("!", "TAB", "<", ">", "/", "(", ")", "{", "}", "[", "]", ":", ";", "\"", "'", "=", "+", "-")
 
         shortcuts.forEach { label ->
             val btn = Button(this).apply {
                 text = label
-                minWidth = 80
-                setBackgroundColor(0x00000000)
+                minWidth = 100
+                setPadding(10, 0, 10, 0)
                 setTextColor(0xFFFFFFFF.toInt())
+                setBackgroundColor(0x00000000) // Transparan
             }
 
             btn.setOnClickListener {
                 if (label == "TAB") {
-                    handleTab()
+                    handleTabShortcut()
                 } else {
-                    editor.insertText(label)
+                    insertText(label)
                 }
             }
             shortcutLayout.addView(btn)
         }
     }
 
-    private fun handleTab() {
-        val currentText = editor.content
-        if (currentText.endsWith("!")) {
-            // Hapus '!' dan masukkan boilerplate HTML5
-            val cleanText = currentText.substring(0, currentText.length - 1)
+    private fun handleTabShortcut() {
+        val start = editor.selectionStart
+        val text = editor.text.toString()
+        
+        // Cek kalau karakter sebelum kursor adalah '!'
+        if (start > 0 && text.substring(start - 1, start) == "!") {
+            // Hapus '!' dan masukkan Boilerplate HTML5 pesanan Prof
+            editor.text.delete(start - 1, start)
             val htmlBoilerplate = """
 <!DOCTYPE html>
 <html lang="en">
@@ -62,12 +62,16 @@ class MainActivity : AppCompatActivity() {
   
 </body>
 </html>""".trimIndent()
-
-            editor.content = cleanText + htmlBoilerplate
-            editor.setType(com.ahmadaghazadeh.editor.processor.utils.Language.HTML)
+            insertText(htmlBoilerplate)
         } else {
-            editor.insertText("    ")
+            insertText("    ") // 4 spasi
         }
+    }
+
+    private fun insertText(text: String) {
+        val start = editor.selectionStart
+        val end = editor.selectionEnd
+        editor.text.replace(Math.min(start, end), Math.max(start, end), text)
     }
 }
 
