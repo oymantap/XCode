@@ -1,70 +1,81 @@
 package com.xcode.dev
 
-import android.content.Intent
-import android.net.Uri
-import android.os.Build
 import android.os.Bundle
-import android.os.Environment
-import android.provider.Settings
 import android.widget.Button
 import android.widget.EditText
 import android.widget.LinearLayout
-import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
+import com.google.android.material.tabs.TabLayout
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var editor: EditText
+    private lateinit var tabLayout: TabLayout
+    
+    // Simpan konten file per tab
+    private val fileContents = mutableMapOf<Int, String>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
         editor = findViewById(R.id.editor)
+        tabLayout = findViewById(R.id.tab_layout)
         val shortcutLayout = findViewById<LinearLayout>(R.id.shortcut_layout)
 
-        // 1. Izin Storage (Biar fitur akses folder gak ilang)
-        requestStoragePermission()
+        // Setup 3 Tab Awal (Bisa ditambahin logic buat add tab dinamis nanti)
+        setupTabs()
 
-        // 2. Daftar Shortcut ala Acode (Full Set)
+        // Shortcut Bar
         val shortcuts = arrayOf("!", "TAB", "<", ">", "/", "(", ")", "{", "}", "[", "]", ":", ";", "\"", "'", "=", "+", "-")
-
         shortcuts.forEach { label ->
             val btn = Button(this).apply {
                 text = label
                 minWidth = 100
-                setPadding(10, 0, 10, 0)
                 setTextColor(0xFFFFFFFF.toInt())
-                setBackgroundColor(0x00000000) // Transparent
+                setBackgroundColor(0x00000000)
             }
-
             btn.setOnClickListener {
-                if (label == "TAB") {
-                    handleTabShortcut()
-                } else {
-                    insertAtCursor(label)
-                }
+                if (label == "TAB") handleTabShortcut() else insertAtCursor(label)
             }
             shortcutLayout.addView(btn)
         }
+    }
+
+    private fun setupTabs() {
+        val files = arrayOf("index.html", "script.py", "style.css")
+        files.forEachIndexed { index, name ->
+            tabLayout.addTab(tabLayout.newTab().setText(name))
+            fileContents[index] = "" // Inisialisasi kosong
+        }
+
+        tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
+            override fun onTabSelected(tab: TabLayout.Tab?) {
+                tab?.let { 
+                    // Simpan teks dari tab sebelumnya, load teks tab sekarang
+                    editor.setText(fileContents[it.position] ?: "")
+                }
+            }
+            override fun onTabUnselected(tab: TabLayout.Tab?) {
+                tab?.let { fileContents[it.position] = editor.text.toString() }
+            }
+            override fun onTabReselected(tab: TabLayout.Tab?) {}
+        })
     }
 
     private fun handleTabShortcut() {
         val start = editor.selectionStart
         val text = editor.text.toString()
         
-        // FITUR MEGA PROYEK: ! + TAB -> HTML5 Boilerplate Modern
         if (start > 0 && text.substring(start - 1, start) == "!") {
-            editor.text.delete(start - 1, start) // Hapus tanda '!'
-            
+            editor.text.delete(start - 1, start)
             val boilerplate = """
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta http-equiv="X-UA-Compatible" content="ie=edge">
-  <title>Document</title>
+  <title>XCode Project</title>
 </head>
 <body>
   
@@ -72,28 +83,14 @@ class MainActivity : AppCompatActivity() {
 </html>""".trimIndent()
             insertAtCursor(boilerplate)
         } else {
-            insertAtCursor("    ") // Tab 4 spasi
+            insertAtCursor("    ")
         }
     }
 
     private fun insertAtCursor(str: String) {
-        val start = editor.selectionStart
-        val end = editor.selectionEnd
-        editor.text.replace(Math.min(start, end), Math.max(start, end), str)
-    }
-
-    private fun requestStoragePermission() {
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.R) {
-            if (!Environment.isExternalStorageManager()) {
-                try {
-                    val intent = Intent(Settings.ACTION_MANAGE_APP_ALL_FILES_ACCESS_PERMISSION)
-                    intent.data = Uri.parse("package:$packageName")
-                    startActivity(intent)
-                } catch (e: Exception) {
-                    val intent = Intent(Settings.ACTION_MANAGE_ALL_FILES_ACCESS_PERMISSION)
-                    startActivity(intent)
-                }
-            }
-        }
+        val start = Math.max(editor.selectionStart, 0)
+        val end = Math.max(editor.selectionEnd, 0)
+        editor.text.replace(start, end, str)
     }
 }
+
