@@ -2,11 +2,10 @@ package com.xcode.dev
 
 import android.graphics.Color
 import android.os.Bundle
+import android.util.TypedValue
 import android.webkit.*
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
-import androidx.documentfile.provider.DocumentFile
-import android.net.Uri
 
 class PreviewActivity : AppCompatActivity() {
     
@@ -17,22 +16,21 @@ class PreviewActivity : AppCompatActivity() {
         
         window.statusBarColor = Color.parseColor("#1E1E1E")
         
-        // UI MODERN HEADER
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            backgroundColor = Color.parseColor("#0D0D0D")
+            setBackgroundColor(Color.parseColor("#0D0D0D")) // FIXED
         }
 
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(20, 15, 20, 15)
-            backgroundColor = Color.parseColor("#1E1E1E")
-            gravity = android.view.Gravity.CENTER_VERTICAL
+            setBackgroundColor(Color.parseColor("#1E1E1E")) // FIXED
+            gravity = Gravity.CENTER_VERTICAL
         }
 
         val favicon = ImageView(this).apply {
             setImageResource(android.R.drawable.ic_menu_compass)
-            layoutParams = LinearLayout.LayoutParams(40, 40)
+            layoutParams = LinearLayout.LayoutParams(48, 48)
         }
 
         val urlBar = TextView(this).apply {
@@ -40,7 +38,7 @@ class PreviewActivity : AppCompatActivity() {
             setTextColor(Color.parseColor("#808080"))
             setBackgroundResource(android.R.drawable.editbox_dropdown_light_frame)
             setPadding(30, 10, 30, 10)
-            textSize = 12sp
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f) // FIXED
             layoutParams = LinearLayout.LayoutParams(0, -2, 1f).apply { setMargins(20, 0, 20, 0) }
         }
 
@@ -52,13 +50,7 @@ class PreviewActivity : AppCompatActivity() {
             layoutParams = LinearLayout.LayoutParams(-1, -1)
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
-            webViewClient = object : WebViewClient() {
-                // LOGIC BACA FILE TERPISAH (.js, .css)
-                override fun shouldInterceptRequest(view: WebView?, request: WebResourceRequest?): WebResourceResponse? {
-                    // Di sini lo bisa tambahin logic mapping URI ke DocumentFile kalau mau full offline
-                    return super.shouldInterceptRequest(view, request)
-                }
-            }
+            webViewClient = WebViewClient()
         }
         
         root.addView(webView)
@@ -72,4 +64,3 @@ class PreviewActivity : AppCompatActivity() {
         if (webView.canGoBack()) webView.goBack() else super.onBackPressed()
     }
 }
-
