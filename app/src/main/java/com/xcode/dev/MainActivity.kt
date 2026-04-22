@@ -51,24 +51,49 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun getFileIcon(file: DocumentFile): Int {
-        if (file.isDirectory) return R.drawable.ic_folder
-        val name = file.name?.lowercase() ?: ""
-        if (name == "settings.json") return R.drawable.ic_db
-        return when {
-            name.endsWith(".html") -> R.drawable.ic_html
-            name.endsWith(".js") -> R.drawable.ic_js
-            name.endsWith(".css") -> R.drawable.ic_css
-            name.endsWith(".jsx") -> R.drawable.ic_jsx
-            name.endsWith(".ts") -> R.drawable.ic_ts
-            name.endsWith(".py") -> R.drawable.ic_py
-            name.endsWith(".dart") -> R.drawable.ic_dart
-            name.endsWith(".php") -> R.drawable.ic_php
-            name.endsWith(".java") -> R.drawable.ic_java
-            name.endsWith(".kt") -> R.drawable.ic_kt
-            name.endsWith(".sql") || name.endsWith(".json") -> R.drawable.ic_db
-            else -> R.drawable.ic_files
+    // 1. Cek Folder dulu
+    if (file.isDirectory) return R.drawable.ic_folder
+    
+    val name = file.name?.lowercase() ?: ""
+    
+    // 2. Cek File Spesial
+    if (name == "settings.json") return R.drawable.ic_db
+
+    // 3. Logika Extension
+    return when {
+        name.endsWith(".html") -> R.drawable.ic_html
+        name.endsWith(".js") -> R.drawable.ic_js
+        name.endsWith(".css") -> R.drawable.ic_css
+        name.endsWith(".jsx") -> R.drawable.ic_jsx
+        name.endsWith(".ts") -> R.drawable.ic_ts
+        name.endsWith(".go") -> R.drawable.ic_go
+        name.endsWith(".py") -> R.drawable.ic_py
+        name.endsWith(".php") -> R.drawable.ic_php
+        name.endsWith(".java") -> R.drawable.ic_java
+        name.endsWith(".kt") -> R.drawable.ic_kt
+        name.endsWith(".rs") -> R.drawable.ic_rs
+        name.endsWith(".rb") -> R.drawable.ic_rb
+        name.endsWith(".lua") -> R.drawable.ic_lua
+        name.endsWith(".sql") || name.endsWith(".json") -> R.drawable.ic_db
+        
+        // Logika Dart vs Flutter
+        name.endsWith(".dart") -> {
+            val isFlutter = try {
+                val stream = contentResolver.openInputStream(file.uri)
+                val firstLine = stream?.bufferedReader()?.readLine() ?: ""
+                stream?.close()
+                // Kalau di baris pertama ada import flutter, pake ikon flutter
+                firstLine.contains("package:flutter") || firstLine.contains("flutter")
+            } catch (e: Exception) { false }
+            
+            if (isFlutter) R.drawable.ic_flutter else R.drawable.ic_dart
         }
+        
+        // Kalau ga ada yang cocok, pake ikon default
+        else -> R.drawable.ic_files
     }
+    }
+    
 
     private fun setupExplorer() {
         findViewById<ImageButton>(R.id.btn_add_folder).setOnClickListener {
