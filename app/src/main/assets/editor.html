@@ -47,6 +47,10 @@
                 } else { editor.insert("\t"); }
             } else { editor.insert(label); }
         }
+
+        // Tambahin ini di bawah fungsi handleShortcut
+       function editorUndo() { editor.undo(); }
+       function editorRedo() { editor.redo(); }
     </script>
 </body>
 </html>
