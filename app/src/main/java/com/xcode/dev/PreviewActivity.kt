@@ -13,32 +13,33 @@ class PreviewActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        window.statusBarColor = Color.parseColor("#1E1E1E")
+        window.statusBarColor = Color.parseColor("#121212")
         
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.parseColor("#0D0D0D"))
+            setBackgroundColor(Color.WHITE)
         }
 
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(20, 15, 20, 15)
-            setBackgroundColor(Color.parseColor("#1E1E1E"))
+            setPadding(25, 20, 25, 20)
+            setBackgroundColor(Color.parseColor("#121212"))
             gravity = Gravity.CENTER_VERTICAL
         }
 
         val urlBar = TextView(this).apply {
-            text = "http://localhost:7777/index.html"
-            setTextColor(Color.parseColor("#808080"))
-            setBackgroundResource(android.R.drawable.editbox_dropdown_light_frame)
-            setPadding(30, 10, 30, 10)
+            text = "http://localhost:8080/index.html"
+            setTextColor(Color.parseColor("#BBBBBB"))
+            setBackgroundColor(Color.parseColor("#252525"))
+            setPadding(40, 15, 40, 15)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             layoutParams = LinearLayout.LayoutParams(0, -2, 1f).apply { setMargins(20, 0, 20, 0) }
         }
 
         header.addView(ImageView(this).apply { 
             setImageResource(android.R.drawable.ic_menu_compass)
-            layoutParams = LinearLayout.LayoutParams(48, 48) 
+            setColorFilter(Color.WHITE)
+            layoutParams = LinearLayout.LayoutParams(50, 50) 
         })
         header.addView(urlBar)
         root.addView(header)
@@ -47,9 +48,8 @@ class PreviewActivity : AppCompatActivity() {
             layoutParams = LinearLayout.LayoutParams(-1, -1)
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
-            settings.setSupportZoom(true)
-            settings.builtInZoomControls = true
-            settings.displayZoomControls = false
+            settings.allowContentAccess = true
+            settings.allowFileAccess = true
             webViewClient = WebViewClient()
         }
         
@@ -57,10 +57,12 @@ class PreviewActivity : AppCompatActivity() {
         setContentView(root)
         
         val code = intent.getStringExtra("html_code") ?: ""
-        webView.loadDataWithBaseURL("http://localhost:7777/", code, "text/html", "UTF-8", null)
+        // Pake loadData biar CSS & JS external jalan
+        webView.loadDataWithBaseURL("https://", code, "text/html", "UTF-8", null)
     }
 
     override fun onBackPressed() {
         if (webView.canGoBack()) webView.goBack() else super.onBackPressed()
     }
 }
+
