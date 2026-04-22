@@ -17,21 +17,21 @@ class PreviewActivity : AppCompatActivity() {
         
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.WHITE)
+            setBackgroundColor(Color.parseColor("#121212")) // Fix Konsisten Item
         }
 
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(25, 20, 25, 20)
-            setBackgroundColor(Color.parseColor("#121212"))
+            setPadding(30, 20, 30, 20)
+            setBackgroundColor(Color.parseColor("#1E1E1E"))
             gravity = Gravity.CENTER_VERTICAL
         }
 
         val urlBar = TextView(this).apply {
             text = "http://localhost:8080/index.html"
-            setTextColor(Color.parseColor("#BBBBBB"))
-            setBackgroundColor(Color.parseColor("#252525"))
-            setPadding(40, 15, 40, 15)
+            setTextColor(Color.parseColor("#888888"))
+            setBackgroundColor(Color.parseColor("#2D2D2D"))
+            setPadding(35, 12, 35, 12)
             setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
             layoutParams = LinearLayout.LayoutParams(0, -2, 1f).apply { setMargins(20, 0, 20, 0) }
         }
@@ -39,7 +39,7 @@ class PreviewActivity : AppCompatActivity() {
         header.addView(ImageView(this).apply { 
             setImageResource(android.R.drawable.ic_menu_compass)
             setColorFilter(Color.WHITE)
-            layoutParams = LinearLayout.LayoutParams(50, 50) 
+            layoutParams = LinearLayout.LayoutParams(45, 45) 
         })
         header.addView(urlBar)
         root.addView(header)
@@ -48,16 +48,16 @@ class PreviewActivity : AppCompatActivity() {
             layoutParams = LinearLayout.LayoutParams(-1, -1)
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
-            settings.allowContentAccess = true
             settings.allowFileAccess = true
+            settings.databaseEnabled = true
             webViewClient = WebViewClient()
+            setBackgroundColor(Color.WHITE) // Konten HTML tetep putih biar keliatan
         }
         
         root.addView(webView)
         setContentView(root)
         
         val code = intent.getStringExtra("html_code") ?: ""
-        // Pake loadData biar CSS & JS external jalan
         webView.loadDataWithBaseURL("https://", code, "text/html", "UTF-8", null)
     }
 
