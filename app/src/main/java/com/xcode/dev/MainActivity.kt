@@ -10,7 +10,6 @@ import android.util.TypedValue
 import android.view.*
 import android.webkit.*
 import android.widget.*
-import android.view.Gravity
 import androidx.appcompat.app.AppCompatActivity
 import androidx.documentfile.provider.DocumentFile
 import androidx.drawerlayout.widget.DrawerLayout
@@ -39,7 +38,7 @@ class MainActivity : AppCompatActivity() {
         setupAceEditor()
         setupExplorer()
         setupTabs()
-        setupShortcuts() // GUE PANGGIL BIAR SHORTCUT GAK ILANG
+        setupShortcuts()
         loadFoldersFromPrefs()
     }
 
@@ -48,7 +47,10 @@ class MainActivity : AppCompatActivity() {
             javaScriptEnabled = true
             domStorageEnabled = true
             allowFileAccess = true
+            setSupportZoom(false)
         }
+        // Biar kaga lemot dan prevent FC
+        editorWebView.setLayerType(View.LAYER_TYPE_HARDWARE, null)
         editorWebView.webViewClient = WebViewClient()
         editorWebView.loadUrl("file:///android_asset/editor.html")
     }
@@ -134,7 +136,6 @@ class MainActivity : AppCompatActivity() {
         tabLayout.addTab(newTab, true)
         tabUris[newTab.position] = file.uri
         
-        // SUPPORT BANYAK BAHASA
         val ext = file.name?.substringAfterLast(".", "html") ?: "html"
         val mode = when(ext) {
             "js" -> "javascript"
@@ -152,17 +153,17 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupShortcuts() {
         val sc = findViewById<LinearLayout>(R.id.shortcut_layout)
-        sc.removeAllViews() // Bersihin dulu biar kaga double
+        sc.removeAllViews()
         val items = arrayOf("!", "TAB", "<", ">", "/", "{", "}", "(", ")", ";", "*", "+", "-", "=", "\"", "'")
         items.forEach { label ->
             val b = Button(this).apply {
                 text = label
                 setTextColor(Color.WHITE)
                 setBackgroundColor(0)
+                layoutParams = LinearLayout.LayoutParams(130, -1)
             }
             b.setOnClickListener { 
-                if (label == "TAB") editorWebView.evaluateJavascript("editor.insert('\\t')", null)
-                else editorWebView.evaluateJavascript("editor.insert('$label')", null)
+                editorWebView.evaluateJavascript("handleShortcut('$label')", null)
             }
             sc.addView(b)
         }
@@ -184,12 +185,6 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
-    // Persistence & Activity Results tetap sama kodenya
-    private fun saveFoldersToPrefs() {
-        val uris = rootFolders.map { it.uri.toString() }.toSet()
-        getSharedPreferences("XCode", Context.MODE_PRIVATE).edit().putStringSet("root_uris", uris).apply()
-    }
-
     private fun loadFoldersFromPrefs() {
         val set = getSharedPreferences("XCode", Context.MODE_PRIVATE).getStringSet("root_uris", null)
         set?.forEach {
@@ -205,7 +200,12 @@ class MainActivity : AppCompatActivity() {
         if (requestCode == 1001 && resultCode == RESULT_OK) {
             data?.data?.let { uri ->
                 contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-                DocumentFile.fromTreeUri(this, uri)?.let { rootFolders.add(it); saveFoldersToPrefs(); refreshListView() }
+                DocumentFile.fromTreeUri(this, uri)?.let { 
+                    rootFolders.add(it)
+                    val set = rootFolders.map { it.uri.toString() }.toSet()
+                    getSharedPreferences("XCode", Context.MODE_PRIVATE).edit().putStringSet("root_uris", set).apply()
+                    refreshListView() 
+                }
             }
         }
     }
@@ -217,3 +217,4 @@ class MainActivity : AppCompatActivity() {
         }.show()
     }
 }
+
