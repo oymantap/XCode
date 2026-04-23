@@ -36,7 +36,9 @@ class MainActivity : AppCompatActivity() {
         window.statusBarColor = Color.parseColor("#121212")
         setContentView(R.layout.activity_main)
 
+        // Integrasi SettingsManager yang baru lo kasih
         settingsManager = SettingsManager(this)
+        
         editorWebView = findViewById(R.id.editor)
         listFiles = findViewById(R.id.list_files)
         tabLayout = findViewById(R.id.tab_layout)
@@ -47,9 +49,8 @@ class MainActivity : AppCompatActivity() {
         setupTabs()
         setupShortcuts()
         
-        // ANTI-FC: Delay biar window siap sebelum popup muncul
         drawerLayout.post { 
-            showLoading("Restoring Assets & Projects...") 
+            showLoading("Restoring XCode Pro...") 
             loadFoldersFromPrefs()
             
             editorWebView.postDelayed({ 
@@ -78,7 +79,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun openDefaultFile() {
         val defaultFile = File(filesDir, "main.txt")
-        if (!defaultFile.exists()) defaultFile.writeText("// Welcome to XCode Dev\n")
+        if (!defaultFile.exists()) defaultFile.writeText("// Welcome to XCode Pro\n")
         openFileWithTab(DocumentFile.fromFile(defaultFile))
     }
 
@@ -104,21 +105,21 @@ class MainActivity : AppCompatActivity() {
                 }
                 Toast.makeText(this, "Saved!", Toast.LENGTH_SHORT).show()
                 if (uri.toString().contains("settings.json")) applySettingsToEditor()
-            } catch (e: Exception) { Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_LONG).show() }
+            } catch (e: Exception) { Toast.makeText(this, "Save Error: ${e.message}", Toast.LENGTH_LONG).show() }
         }
     }
 
-    // RYCL FULL ICON LOGIC: Flutter lib check + manual extensions
     private fun getFileIcon(file: DocumentFile): Int {
         if (file.isDirectory) return R.drawable.ic_folder
         val n = file.name?.lowercase() ?: ""
         
+        // Logic Flutter (Tetap dijaga biar ga ilang lagi)
         if (n.endsWith(".dart")) {
             try {
                 if (file.parentFile?.name == "lib") return R.drawable.ic_flutter
-                val stream = contentResolver.openInputStream(file.uri)
-                val line = stream?.bufferedReader()?.use { it.readLine() } ?: ""
-                if (line.contains("package:flutter")) return R.drawable.ic_flutter
+                contentResolver.openInputStream(file.uri)?.bufferedReader()?.use { 
+                    if (it.readLine()?.contains("package:flutter") == true) return R.drawable.ic_flutter 
+                }
             } catch (e: Exception) {}
             return R.drawable.ic_dart
         }
@@ -127,45 +128,11 @@ class MainActivity : AppCompatActivity() {
             n.endsWith(".html") -> R.drawable.ic_html
             n.endsWith(".js") -> R.drawable.ic_js
             n.endsWith(".css") -> R.drawable.ic_css
-            n.endsWith(".jsx") || n.endsWith(".tsx") -> R.drawable.ic_jsx
-            n.endsWith(".go") -> R.drawable.ic_go
-            n.endsWith(".py") -> R.drawable.ic_py
-            n.endsWith(".php") -> R.drawable.ic_php
             n.endsWith(".java") -> R.drawable.ic_java
             n.endsWith(".kt") || n.endsWith(".kts") -> R.drawable.ic_kt
-            n.endsWith(".rs") -> R.drawable.ic_rs
-            n.endsWith(".rb") -> R.drawable.ic_rb
-            n.endsWith(".lua") -> R.drawable.ic_lua
-            n.endsWith(".ts") -> R.drawable.ic_ts
-            n.endsWith(".sql") || n.endsWith(".json") -> R.drawable.ic_db
-            n.endsWith(".md") -> R.drawable.ic_md
-            n.endsWith(".xml") -> R.drawable.ic_xml
+            n.endsWith(".json") || n.endsWith(".sql") -> R.drawable.ic_db
             else -> R.drawable.ic_files
         }
-    }
-
-    private fun showInputDialog(title: String, defaultText: String, callback: (String) -> Unit) {
-        val container = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL; setPadding(50, 50, 50, 50)
-            background = GradientDrawable().apply {
-                setColor(Color.parseColor("#EE1A1A1A")); cornerRadius = 40f
-                setStroke(2, Color.parseColor("#44FFFFFF"))
-            }
-        }
-        val popup = PopupWindow(container, 750, ViewGroup.LayoutParams.WRAP_CONTENT, true)
-        container.addView(TextView(this).apply { text = title; setTextColor(Color.CYAN); setPadding(10,0,0,30) })
-        val input = EditText(this).apply { 
-            setText(defaultText); setTextColor(Color.WHITE); setHintTextColor(Color.GRAY)
-            background = GradientDrawable().apply { setColor(Color.parseColor("#22FFFFFF")); cornerRadius = 15f }
-            setPadding(20,20,20,20)
-        }
-        container.addView(input)
-        container.addView(Button(this).apply { 
-            text = "CONFIRM"; setTextColor(Color.GREEN); setBackgroundColor(0)
-            setOnClickListener { callback(input.text.toString()); popup.dismiss() }
-        })
-        popup.showAtLocation(drawerLayout, Gravity.CENTER, 0, 0)
-        dimBehind(popup)
     }
 
     private fun setupExplorer() {
@@ -178,21 +145,24 @@ class MainActivity : AppCompatActivity() {
         findViewById<ImageButton>(R.id.btn_save).setOnClickListener { saveCurrentFile() }
         findViewById<ImageButton>(R.id.btn_play).setOnClickListener { runPreview() }
         findViewById<ImageButton>(R.id.btn_open_drawer).setOnClickListener { drawerLayout.openDrawer(Gravity.LEFT) }
-        findViewById<Button>(R.id.btn_new_file).setOnClickListener { 
-            if (currentFolder != null) showInputDialog("New File", "index.html") { 
-                currentFolder?.createFile("application/octet-stream", it)
-                refreshListView()
-            } else Toast.makeText(this, "Select folder first!", Toast.LENGTH_SHORT).show()
-        }
         
-        // LONG CLICK: RENAME, DELETE, EJECT
+        findViewById<Button>(R.id.btn_new_file).setOnClickListener { 
+            if (currentFolder != null) {
+                showInputDialog("New File", "index.html") { name ->
+                    currentFolder?.createFile("application/octet-stream", name)
+                    refreshListView()
+                }
+            } else Toast.makeText(this, "Select folder in explorer!", Toast.LENGTH_SHORT).show()
+        }
+
+        findViewById<Button>(R.id.btn_back_root).setOnClickListener {
+            currentFolder = null
+            refreshListView()
+        }
+
         listFiles.setOnItemLongClickListener { _, _, pos, _ ->
             val files = getVisibleFiles()
-            val actualPos = if (currentFolder != null) pos - 1 else pos
-            if (actualPos >= 0 && actualPos < files.size) {
-                val selected = files[actualPos]
-                if (selected.name != "settings.json") showModernPopup(selected, actualPos)
-            }
+            if (pos >= 0 && pos < files.size) showModernPopup(files[pos], pos)
             true
         }
     }
@@ -201,22 +171,23 @@ class MainActivity : AppCompatActivity() {
         val files = getVisibleFiles()
         val adapter = object : ArrayAdapter<DocumentFile>(this, 0, files) {
             override fun getView(pos: Int, conv: View?, par: ViewGroup): View {
-                val layout = LinearLayout(context).apply { orientation = LinearLayout.HORIZONTAL; setPadding(35, 30, 35, 30); gravity = Gravity.CENTER_VERTICAL }
+                val layout = LinearLayout(context).apply { 
+                    orientation = LinearLayout.HORIZONTAL; setPadding(35, 30, 35, 30); gravity = Gravity.CENTER_VERTICAL 
+                }
                 val file = getItem(pos)!!
-                layout.addView(ImageView(context).apply { layoutParams = LinearLayout.LayoutParams(55, 55); setImageResource(getFileIcon(file)) })
-                layout.addView(TextView(context).apply { text = "   " + file.name; setTextColor(if(file.name == "settings.json") Color.YELLOW else Color.WHITE); setTextSize(TypedValue.COMPLEX_UNIT_SP, 15f) })
+                layout.addView(ImageView(context).apply { 
+                    layoutParams = LinearLayout.LayoutParams(55, 55); setImageResource(getFileIcon(file)) 
+                })
+                layout.addView(TextView(context).apply { 
+                    text = "   " + file.name; setTextColor(if(file.name == "settings.json") Color.YELLOW else Color.WHITE)
+                    setTextSize(TypedValue.COMPLEX_UNIT_SP, 14f)
+                })
                 return layout
             }
         }
-        if (currentFolder != null) {
-            val header = Button(this).apply { text = "← BACK"; setTextColor(Color.CYAN); setBackgroundColor(0); setOnClickListener { currentFolder = currentFolder?.parentFile; if (rootFolders.any { it.uri == currentFolder?.uri }) currentFolder = null; refreshListView() } }
-            if (listFiles.headerViewsCount == 0) listFiles.addHeaderView(header)
-        } else { while (listFiles.headerViewsCount > 0) { listFiles.removeHeaderView(listFiles.getChildAt(0)) } }
         listFiles.adapter = adapter
         listFiles.setOnItemClickListener { _, _, pos, _ ->
-            val actualPos = if (currentFolder != null) pos - 1 else pos
-            if (actualPos < 0) return@setOnItemClickListener
-            val selected = files[actualPos]
+            val selected = files[pos]
             if (selected.isDirectory) { currentFolder = selected; refreshListView() }
             else { openFileWithTab(selected); drawerLayout.closeDrawers() }
         }
@@ -224,14 +195,10 @@ class MainActivity : AppCompatActivity() {
 
     private fun getVisibleFiles(): List<DocumentFile> {
         val list = mutableListOf<DocumentFile>()
-        try {
-            if (currentFolder == null) { 
-                list.add(DocumentFile.fromFile(File(filesDir, "settings.json")))
-                list.addAll(rootFolders) 
-            } else { 
-                list.addAll(currentFolder!!.listFiles()) 
-            }
-        } catch (e: Exception) { refreshListView() }
+        if (currentFolder == null) { 
+            list.add(DocumentFile.fromFile(File(filesDir, "settings.json")))
+            list.addAll(rootFolders) 
+        } else { list.addAll(currentFolder!!.listFiles()) }
         return list
     }
 
@@ -259,27 +226,23 @@ class MainActivity : AppCompatActivity() {
                 uri.scheme == "file" -> File(uri.path!!).readText()
                 else -> contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: ""
             }
-            val name = DocumentFile.fromSingleUri(this, uri)?.name ?: "file.html"
+            val name = DocumentFile.fromSingleUri(this, uri)?.name ?: "index.html"
             val escaped = content.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n")
             editorWebView.evaluateJavascript("setCode('$escaped', '$name')", null)
             applySettingsToEditor()
         } catch (e: Exception) {}
     }
 
-    private fun setupShortcuts() {
-        val sc = findViewById<LinearLayout>(R.id.shortcut_layout)
-        sc.removeAllViews()
-        val actions = mapOf("↩️" to "editor.undo()", "↪️" to "editor.redo()", "TAB" to "handleShortcut('TAB')")
-        actions.forEach { (lbl, js) ->
-            val b = Button(this).apply { text = lbl; setTextColor(Color.WHITE); setBackgroundColor(0); layoutParams = LinearLayout.LayoutParams(130, -1) }
-            b.setOnClickListener { editorWebView.evaluateJavascript(js, null) }
-            sc.addView(b)
-        }
-        val symbols = arrayOf("<", ">", "/", "{", "}", "(", ")", ";", "\"", "'")
-        symbols.forEach { s ->
-            val b = Button(this).apply { text = s; setTextColor(Color.WHITE); setBackgroundColor(0); layoutParams = LinearLayout.LayoutParams(120, -1) }
-            b.setOnClickListener { editorWebView.evaluateJavascript("handleShortcut('$s')", null) }
-            sc.addView(b)
+    private fun applySettingsToEditor() {
+        val json = settingsManager.loadSettings()
+        editorWebView.evaluateJavascript("applySettings($json)", null)
+    }
+
+    private fun runPreview() {
+        editorWebView.evaluateJavascript("getCode()") { code ->
+            val intent = Intent(this, PreviewActivity::class.java)
+            intent.putExtra("html_code", code.fixCode())
+            startActivity(intent)
         }
     }
 
@@ -295,9 +258,14 @@ class MainActivity : AppCompatActivity() {
         refreshListView()
     }
 
-    private fun saveFoldersToPrefs() { getSharedPreferences("XC", MODE_PRIVATE).edit().putStringSet("f", rootFolders.map { it.uri.toString() }.toSet()).apply() }
-    private fun saveTabsToPrefs() { getSharedPreferences("XC", MODE_PRIVATE).edit().putStringSet("t", openedTabs.keys.map { it.toString() }.toSet()).apply() }
-    
+    private fun saveFoldersToPrefs() { 
+        getSharedPreferences("XC", MODE_PRIVATE).edit().putStringSet("f", rootFolders.map { it.uri.toString() }.toSet()).apply() 
+    }
+
+    private fun saveTabsToPrefs() { 
+        getSharedPreferences("XC", MODE_PRIVATE).edit().putStringSet("t", openedTabs.keys.map { it.toString() }.toSet()).apply() 
+    }
+
     private fun restoreTabsFromPrefs() {
         getSharedPreferences("XC", MODE_PRIVATE).getStringSet("t", null)?.forEach {
             val u = Uri.parse(it)
@@ -307,34 +275,13 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun showModernPopup(file: DocumentFile, pos: Int) {
-        val view = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(40, 40, 40, 40); background = GradientDrawable().apply { setColor(Color.parseColor("#EE1A1A1A")); cornerRadius = 35f; setStroke(2, Color.parseColor("#44FFFFFF")) } }
-        val popup = PopupWindow(view, 650, ViewGroup.LayoutParams.WRAP_CONTENT, true)
-        view.addView(TextView(this).apply { text = "Option: ${file.name}"; setTextColor(Color.GRAY); setTextSize(12f); setPadding(10, 0, 0, 30) })
-        val options = if (currentFolder == null) arrayOf("Rename", "Eject Folder") else arrayOf("Rename", "Delete")
-        options.forEachIndexed { index, s ->
-            val b = Button(this).apply { text = s; setTextColor(Color.WHITE); setBackgroundColor(0); gravity = Gravity.START; isAllCaps = false }
-            b.setOnClickListener {
-                if (index == 0) showInputDialog("Rename", file.name ?: "") { file.renameTo(it); refreshListView() }
-                else { if (currentFolder == null) { rootFolders.removeAt(pos - 1); saveFoldersToPrefs(); refreshListView() } else { file.delete(); refreshListView() } }
-                popup.dismiss()
-            }
-            view.addView(b)
-        }
-        popup.showAtLocation(drawerLayout, Gravity.CENTER, 0, 0); dimBehind(popup)
-    }
-
-    private fun dimBehind(popup: PopupWindow) {
-        val root = popup.contentView.rootView
-        val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
-        val lp = root.layoutParams as WindowManager.LayoutParams
-        lp.flags = lp.flags or WindowManager.LayoutParams.FLAG_DIM_BEHIND; lp.dimAmount = 0.6f
-        wm.updateViewLayout(root, lp)
-    }
-
     private fun setupAceEditor() {
-        editorWebView.settings.apply { javaScriptEnabled = true; domStorageEnabled = true; allowFileAccess = true }
-        editorWebView.webViewClient = object : WebViewClient() { override fun onPageFinished(v: WebView?, u: String?) { applySettingsToEditor() } }
+        editorWebView.settings.apply { 
+            javaScriptEnabled = true; domStorageEnabled = true; allowFileAccess = true 
+        }
+        editorWebView.webViewClient = object : WebViewClient() {
+            override fun onPageFinished(v: WebView?, u: String?) { applySettingsToEditor() }
+        }
         editorWebView.loadUrl("file:///android_asset/editor.html")
     }
 
@@ -346,17 +293,60 @@ class MainActivity : AppCompatActivity() {
         })
     }
 
-    private fun applySettingsToEditor() { editorWebView.evaluateJavascript("applySettings(${settingsManager.loadSettings()})", null) }
-    private fun runPreview() { editorWebView.evaluateJavascript("getCode()") { startActivity(Intent(this, PreviewActivity::class.java).apply { putExtra("html_code", it.fixCode()) }) } }
+    private fun setupShortcuts() {
+        val sc = findViewById<LinearLayout>(R.id.shortcut_layout)
+        sc.removeAllViews()
+        val actions = mapOf("↺" to "editor.undo()", "↻" to "editor.redo()", "➜" to "handleShortcut('TAB')")
+        actions.forEach { (lbl, js) ->
+            val b = Button(this).apply { text = lbl; setTextColor(Color.WHITE); setBackgroundColor(0) }
+            b.setOnClickListener { editorWebView.evaluateJavascript(js, null) }
+            sc.addView(b)
+        }
+        val symbols = arrayOf("<", ">", "/", "{", "}", "(", ")", ";", "\"", "'")
+        symbols.forEach { s ->
+            val b = Button(this).apply { text = s; setTextColor(Color.WHITE); setBackgroundColor(0) }
+            b.setOnClickListener { editorWebView.evaluateJavascript("handleShortcut('$s')", null) }
+            sc.addView(b)
+        }
+    }
+
+    private fun showInputDialog(title: String, default: String, cb: (String) -> Unit) {
+        val input = EditText(this).apply { setText(default) }
+        AlertDialog.Builder(this).setTitle(title).setView(input)
+            .setPositiveButton("OK") { _, _ -> cb(input.text.toString()) }
+            .setNegativeButton("Cancel", null).show()
+    }
+
+    private fun showModernPopup(file: DocumentFile, pos: Int) {
+        val options = if (currentFolder == null && file.name != "settings.json") arrayOf("Rename", "Eject Folder") else arrayOf("Rename", "Delete")
+        AlertDialog.Builder(this).setTitle(file.name).setItems(options) { _, which ->
+            if (which == 0) showInputDialog("Rename", file.name ?: "") { file.renameTo(it); refreshListView() }
+            else {
+                if (currentFolder == null) { rootFolders.removeAt(pos - 1); saveFoldersToPrefs() }
+                else { file.delete() }
+                refreshListView()
+            }
+        }.show()
+    }
+
+    private fun dimBehind(popup: PopupWindow) {
+        val container = popup.contentView.rootView
+        val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        val lp = container.layoutParams as WindowManager.LayoutParams
+        lp.flags = WindowManager.LayoutParams.FLAG_DIM_BEHIND
+        lp.dimAmount = 0.5f
+        wm.updateViewLayout(container, lp)
+    }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == 1001 && resultCode == RESULT_OK) {
             data?.data?.let { u ->
                 contentResolver.takePersistableUriPermission(u, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-                DocumentFile.fromTreeUri(this, u)?.let { f -> if (!rootFolders.any { it.uri == f.uri }) { rootFolders.add(f); saveFoldersToPrefs(); refreshListView() } }
+                DocumentFile.fromTreeUri(this, u)?.let { f -> 
+                    if (!rootFolders.any { it.uri == f.uri }) { rootFolders.add(f); saveFoldersToPrefs(); refreshListView() }
+                }
             }
         }
     }
 }
-
