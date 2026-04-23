@@ -38,7 +38,11 @@ class MainActivity : AppCompatActivity() {
         window.statusBarColor = Color.parseColor("#121212")
         setContentView(R.layout.activity_main)
 
-            Log.d("TEST", contentResolver.persistedUriPermissions.toString())
+Toast.makeText(
+    this,
+    "Persisted: " + contentResolver.persistedUriPermissions.toString(),
+    Toast.LENGTH_LONG
+).show()
 
         settingsManager = SettingsManager(this)
         
@@ -94,24 +98,29 @@ class MainActivity : AppCompatActivity() {
             .replace("\\u003E", ">").replace("\\u0026", "&")
     }
 
-    private fun saveCurrentFile() {
-        val currentTab = tabLayout.getTabAt(tabLayout.selectedTabPosition) ?: return
-        val uri = tabToUri[currentTab] ?: return
-        editorWebView.evaluateJavascript("getCode()") { code ->
-            val finalCode = org.json.JSONArray("[$code]").getString(0)
-            try {
-                if (uri.toString().contains("settings.json") || uri.scheme == "file") {
-                    val path = uri.path ?: return@evaluateJavascript
-                    File(path).writeText(finalCode)
-                } else {
-                  contentResolver.openOutputStream(uri)?.use {
-                  it.write(finalCode.toByteArray(Charsets.UTF_8)) }
+private fun saveCurrentFile() {
+    val currentTab = tabLayout.getTabAt(tabLayout.selectedTabPosition) ?: return
+    val uri = tabToUri[currentTab] ?: return
+
+    editorWebView.evaluateJavascript("getCode()") { code ->
+        val finalCode = org.json.JSONArray("[$code]").getString(0)
+
+        try {
+            if (uri.scheme == "file") {
+                File(uri.path!!).writeText(finalCode)
+            } else {
+                contentResolver.openOutputStream(uri)?.use {
+                    it.write(finalCode.toByteArray(Charsets.UTF_8))
                 }
-                Toast.makeText(this, "Saved!", Toast.LENGTH_SHORT).show()
-                if (uri.toString().contains("settings.json")) applySettingsToEditor()
-            } catch (e: Exception) { Toast.makeText(this, "Save Error: ${e.message}", Toast.LENGTH_LONG).show() }
+            }
+
+            Toast.makeText(this, "Saved!", Toast.LENGTH_SHORT).show()
+
+        } catch (e: Exception) {
+            Toast.makeText(this, "Save Error: ${e.message}", Toast.LENGTH_LONG).show()
         }
     }
+}
 
     // RYCL FULL ICON LOGIC (FIXED)
     private fun getFileIcon(file: DocumentFile): Int {
@@ -273,15 +282,23 @@ intent.putExtra("html_code", clean)
 
     // FOLDER AWET LOGIC
 private fun loadFoldersFromPrefs() {
-    val prefs = getSharedPreferences("XC_PRO", MODE_PRIVATE)
-    val persisted = contentResolver.persistedUriPermissions.map { it.uri.toString() }.toSet()
+    rootFolders.clear()
 
-    prefs.getStringSet("folders", null)?.forEach {
-        if (persisted.contains(it)) {
-            val u = Uri.parse(it)
-            DocumentFile.fromTreeUri(this, u)?.let { f ->
-                if (f.exists() && f.canRead()) rootFolders.add(f)
-            }
+    val prefs = getSharedPreferences("XC_PRO", MODE_PRIVATE)
+
+    val saved = prefs.getStringSet("folders", null)
+
+    Log.d("TEST", "Persisted: ${contentResolver.persistedUriPermissions}")
+    Log.d("TEST", "Saved: $saved")
+
+    saved?.forEach {
+        val uri = Uri.parse(it)
+        val doc = DocumentFile.fromTreeUri(this, uri)
+
+        if (doc != null && doc.canRead()) {
+            rootFolders.add(doc)
+        } else {
+            Log.d("TEST", "FAILED LOAD: $uri")
         }
     }
 
@@ -403,19 +420,25 @@ private fun loadFoldersFromPrefs() {
         }
     }
 
-    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
-        super.onActivityResult(requestCode, resultCode, data)
-        if (requestCode == 1001 && resultCode == RESULT_OK) {
-            data?.data?.let { u ->
-          val takeFlags = data.flags and
-            (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+    super.onActivityResult(requestCode, resultCode, data)
 
-    contentResolver.takePersistableUriPermission(u, takeFlags)
-                DocumentFile.fromTreeUri(this, u)?.let { f -> 
-                    if (!rootFolders.any { it.uri == f.uri }) { rootFolders.add(f); saveFoldersToPrefs(); refreshListView() }
+    if (requestCode == 1001 && resultCode == RESULT_OK) {
+        data?.data?.let { u ->
+
+            // 🔥 FIX: jangan pakai data.flags
+            contentResolver.takePersistableUriPermission(
+                u,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            )
+
+            DocumentFile.fromTreeUri(this, u)?.let { f ->
+                if (!rootFolders.any { it.uri == f.uri }) {
+                    rootFolders.add(f)
+                    saveFoldersToPrefs()
+                    refreshListView()
                 }
             }
         }
     }
 }
-
