@@ -272,13 +272,22 @@ private fun saveCurrentFile() {
     }
 
     private fun runPreview() {
-        editorWebView.evaluateJavascript("getCode()") { code ->
-            val intent = Intent(this, PreviewActivity::class.java)
-            val clean = org.json.JSONArray("[$code]").getString(0)
-intent.putExtra("html_code", clean)
-            startActivity(intent)
-        }
+        val currentTab = tabLayout.getTabAt(tabLayout.selectedTabPosition) ?: return
+        val uri = tabToUri[currentTab] ?: return
+        val file = DocumentFile.fromSingleUri(this, uri)
+    
+    // Ambil alamat folder tempat file HTML ini berada
+        val parentUri = file?.parentFile?.uri?.toString() ?: ""
+
+    editorWebView.evaluateJavascript("getCode()") { code ->
+        val intent = Intent(this, PreviewActivity::class.java)
+        val clean = org.json.JSONArray("[$code]").getString(0)
+        
+        intent.putExtra("html_code", clean)
+        intent.putExtra("base_uri", parentUri) // Kirim alamat folder
+        startActivity(intent)
     }
+}
 
     // FOLDER AWET LOGIC
 private fun loadFoldersFromPrefs() {
