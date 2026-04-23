@@ -10,16 +10,19 @@ import androidx.appcompat.app.AppCompatActivity
 
 class PreviewActivity : AppCompatActivity() {
     private lateinit var webView: WebView
+    private lateinit var urlBar: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.statusBarColor = Color.parseColor("#121212")
         
+        // Root Layout
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(Color.parseColor("#121212")) // Fix Konsisten Item
+            setBackgroundColor(Color.parseColor("#121212"))
         }
 
+        // Toolbar / Browser Header
         val header = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(30, 20, 30, 20)
@@ -27,7 +30,7 @@ class PreviewActivity : AppCompatActivity() {
             gravity = Gravity.CENTER_VERTICAL
         }
 
-        val urlBar = TextView(this).apply {
+        urlBar = TextView(this).apply {
             text = "http://localhost:8080/index.html"
             setTextColor(Color.parseColor("#888888"))
             setBackgroundColor(Color.parseColor("#2D2D2D"))
@@ -44,25 +47,57 @@ class PreviewActivity : AppCompatActivity() {
         header.addView(urlBar)
         root.addView(header)
 
+        // WebView Setup
         webView = WebView(this).apply {
             layoutParams = LinearLayout.LayoutParams(-1, -1)
-            settings.javaScriptEnabled = true
-            settings.domStorageEnabled = true
-            settings.allowFileAccess = true
-            settings.databaseEnabled = true
+            
+            settings.apply {
+                javaScriptEnabled = true
+                domStorageEnabled = true
+                databaseEnabled = true
+                
+                // KUNCI: Izin akses file lokal (CSS/JS terpisah)
+                allowFileAccess = true
+                allowContentAccess = true
+                allowFileAccessFromFileURLs = true
+                allowUniversalAccessFromFileURLs = true
+                
+                // Support buat layar HP modern
+                useWideViewPort = true
+                loadWithOverviewMode = true
+            }
+            
             webViewClient = WebViewClient()
-            setBackgroundColor(Color.WHITE) // Konten HTML tetep putih biar keliatan
+            setBackgroundColor(Color.TRANSPARENT) // Biar nggak flicker putih pas load
         }
         
         root.addView(webView)
         setContentView(root)
         
+        // Ambil Data dari Intent
         val code = intent.getStringExtra("html_code") ?: ""
-        webView.loadDataWithBaseURL("https://", code, "text/html", "UTF-8", null)
+        val baseUri = intent.getStringExtra("base_uri") ?: ""
+
+        if (baseUri.isNotEmpty()) {
+            // Load dengan Base URL folder tempat file berada
+            // Jangan lupa tambah "/" di akhir baseUri
+            webView.loadDataWithBaseURL(baseUri + "/", code, "text/html", "UTF-8", null)
+            
+            // Tampilan URL Bar biar gaya
+            val folderName = baseUri.substringAfterLast("%2F").substringAfterLast("/")
+            urlBar.text = "http://xcode.local/$folderName/index.html"
+        } else {
+            // Fallback kalau nggak ada folder (biasanya file default main.txt)
+            webView.loadDataWithBaseURL("https://", code, "text/html", "UTF-8", null)
+        }
     }
 
     override fun onBackPressed() {
-        if (webView.canGoBack()) webView.goBack() else super.onBackPressed()
+        if (webView.canGoBack()) {
+            webView.goBack()
+        } else {
+            super.onBackPressed()
+        }
     }
 }
 
