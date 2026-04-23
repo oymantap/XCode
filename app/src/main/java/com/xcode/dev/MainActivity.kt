@@ -37,6 +37,8 @@ class MainActivity : AppCompatActivity() {
         window.statusBarColor = Color.parseColor("#121212")
         setContentView(R.layout.activity_main)
 
+            Log.d("TEST", contentResolver.persistedUriPermissions.toString())
+
         settingsManager = SettingsManager(this)
         
         editorWebView = findViewById(R.id.editor)
@@ -95,13 +97,14 @@ class MainActivity : AppCompatActivity() {
         val currentTab = tabLayout.getTabAt(tabLayout.selectedTabPosition) ?: return
         val uri = tabToUri[currentTab] ?: return
         editorWebView.evaluateJavascript("getCode()") { code ->
-            val finalCode = code.fixCode()
+            val finalCode = org.json.JSONArray("[$code]").getString(0)
             try {
                 if (uri.toString().contains("settings.json") || uri.scheme == "file") {
                     val path = uri.path ?: return@evaluateJavascript
                     File(path).writeText(finalCode)
                 } else {
-                    contentResolver.openOutputStream(uri, "wt")?.use { it.write(finalCode.toByteArray()) }
+                  contentResolver.openOutputStream(uri)?.use {
+                  it.write(finalCode.toByteArray(Charsets.UTF_8)) }
                 }
                 Toast.makeText(this, "Saved!", Toast.LENGTH_SHORT).show()
                 if (uri.toString().contains("settings.json")) applySettingsToEditor()
@@ -261,7 +264,8 @@ class MainActivity : AppCompatActivity() {
     private fun runPreview() {
         editorWebView.evaluateJavascript("getCode()") { code ->
             val intent = Intent(this, PreviewActivity::class.java)
-            intent.putExtra("html_code", code.fixCode())
+            val clean = org.json.JSONArray("[$code]").getString(0)
+intent.putExtra("html_code", clean)
             startActivity(intent)
         }
     }
@@ -402,7 +406,10 @@ private fun loadFoldersFromPrefs() {
         super.onActivityResult(requestCode, resultCode, data)
         if (requestCode == 1001 && resultCode == RESULT_OK) {
             data?.data?.let { u ->
-                contentResolver.takePersistableUriPermission(u, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+          val takeFlags = data.flags and
+            (Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+
+    contentResolver.takePersistableUriPermission(u, takeFlags)
                 DocumentFile.fromTreeUri(this, u)?.let { f -> 
                     if (!rootFolders.any { it.uri == f.uri }) { rootFolders.add(f); saveFoldersToPrefs(); refreshListView() }
                 }
@@ -410,3 +417,4 @@ private fun loadFoldersFromPrefs() {
         }
     }
 }
+
