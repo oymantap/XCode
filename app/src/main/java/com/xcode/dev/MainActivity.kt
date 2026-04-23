@@ -267,17 +267,21 @@ class MainActivity : AppCompatActivity() {
     }
 
     // FOLDER AWET LOGIC
-    private fun loadFoldersFromPrefs() {
-        val prefs = getSharedPreferences("XC_PRO", MODE_PRIVATE)
-        prefs.getStringSet("folders", null)?.forEach {
+private fun loadFoldersFromPrefs() {
+    val prefs = getSharedPreferences("XC_PRO", MODE_PRIVATE)
+    val persisted = contentResolver.persistedUriPermissions.map { it.uri.toString() }.toSet()
+
+    prefs.getStringSet("folders", null)?.forEach {
+        if (persisted.contains(it)) {
             val u = Uri.parse(it)
-            try {
-                contentResolver.takePersistableUriPermission(u, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-                DocumentFile.fromTreeUri(this, u)?.let { f -> if (f.exists()) rootFolders.add(f) }
-            } catch (e: Exception) {}
+            DocumentFile.fromTreeUri(this, u)?.let { f ->
+                if (f.exists() && f.canRead()) rootFolders.add(f)
+            }
         }
-        refreshListView()
     }
+
+    refreshListView()
+}
 
     private fun saveFoldersToPrefs() { 
         getSharedPreferences("XC_PRO", MODE_PRIVATE).edit().putStringSet("folders", rootFolders.map { it.uri.toString() }.toSet()).apply() 
