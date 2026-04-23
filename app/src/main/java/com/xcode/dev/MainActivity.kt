@@ -50,8 +50,8 @@ class MainActivity : AppCompatActivity() {
         setupShortcuts()
         
         drawerLayout.post { 
-            showLoading("Syncing Folders...") 
-            loadFoldersFromPrefs()
+            showLoading("Syncing Data & Folders...") 
+            loadFoldersFromPrefs() // FUNGSI AWET FOLDER
             
             editorWebView.postDelayed({ 
                 applySettingsToEditor()
@@ -122,7 +122,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // POPUP INPUT YANG KONSISTEN & RESPONSIF
+    // POPUP INPUT YANG KONSISTEN (SAMA DENGAN POPUP MENU)
     private fun showInputDialog(title: String, defaultText: String, callback: (String) -> Unit) {
         val view = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; setPadding(50, 50, 50, 50)
@@ -140,11 +140,10 @@ class MainActivity : AppCompatActivity() {
         }
         view.addView(input)
         view.addView(Button(this).apply {
-            text = "APPLY"; setTextColor(Color.GREEN); setBackgroundColor(0)
+            text = "CONFIRM"; setTextColor(Color.GREEN); setBackgroundColor(0)
             setOnClickListener { callback(input.text.toString()); popup.dismiss() }
         })
-        popup.showAtLocation(drawerLayout, Gravity.CENTER, 0, 0)
-        dimBehind(popup)
+        popup.showAtLocation(drawerLayout, Gravity.CENTER, 0, 0); dimBehind(popup)
     }
 
     private fun setupExplorer() {
@@ -159,9 +158,19 @@ class MainActivity : AppCompatActivity() {
         findViewById<ImageButton>(R.id.btn_open_drawer).setOnClickListener { drawerLayout.openDrawer(Gravity.LEFT) }
         findViewById<Button>(R.id.btn_new_file).setOnClickListener { 
             if (currentFolder != null) showInputDialog("Create New File", "index.html") { 
-                currentFolder?.createFile("application/octet-stream", it)
-                refreshListView()
+                currentFolder?.createFile("application/octet-stream", it); refreshListView()
             } else Toast.makeText(this, "Select folder first!", Toast.LENGTH_SHORT).show()
+        }
+
+        // --- FITUR TAHAN (LONG CLICK) YANG KEMAREN ILANG ---
+        listFiles.setOnItemLongClickListener { _, _, pos, _ ->
+            val files = getVisibleFiles()
+            val actualPos = if (currentFolder != null) pos - 1 else pos
+            if (actualPos >= 0 && actualPos < files.size) {
+                val selected = files[actualPos]
+                if (selected.name != "settings.json") showModernPopup(selected, actualPos)
+            }
+            true
         }
     }
 
@@ -217,12 +226,12 @@ class MainActivity : AppCompatActivity() {
     private fun loadContentToEditor(uri: Uri) {
         try {
             val name = DocumentFile.fromSingleUri(this, uri)?.name ?: "file.txt"
-            // AUTO HIDE PLAY BUTTON
+            // PLAY BUTTON HANYA UNTUK HTML
             btnPlay.visibility = if (name.endsWith(".html")) View.VISIBLE else View.GONE
             
             val content = when {
                 uri.toString().contains("settings.json") -> settingsManager.settingsFile.readText()
-                uri.scheme == "file" -> File(uri.path!!).readText()
+                uri.scheme == "file" -> File(uri.path ?: "").readText()
                 else -> contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: ""
             }
             val escaped = content.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n")
@@ -248,26 +257,23 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    // LOGIKA FOLDER AWET PAKEM 2026
+    // LOGIKA FOLDER AWET PAKEM 2026 - FIX PERMISSION DENIAL
     private fun loadFoldersFromPrefs() {
         val prefs = getSharedPreferences("XC", MODE_PRIVATE)
         val savedUris = prefs.getStringSet("f", null) ?: return
         rootFolders.clear()
         
-        // Cek daftar izin yang dipegang sistem
-        val persistedPermissions = contentResolver.persistedUriPermissions.map { it.uri }
+        val persistedPermissions = contentResolver.persistedUriPermissions.map { it.uri.toString() }
 
         savedUris.forEach { uriString ->
             val u = Uri.parse(uriString)
             try {
-                // Paksa ambil ulang izin biar gak kena "permission denial"
-                if (!persistedPermissions.contains(u)) {
+                // Paksa ambil izin lagi kalau sistem Android ngereset
+                if (!persistedPermissions.contains(uriString)) {
                     contentResolver.takePersistableUriPermission(u, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
                 }
                 DocumentFile.fromTreeUri(this, u)?.let { f -> if (f.exists()) rootFolders.add(f) }
-            } catch (e: Exception) {
-                // Kalau beneran ilang/dihapus user, abaikan
-            }
+            } catch (e: Exception) {}
         }
         refreshListView()
     }
@@ -284,7 +290,7 @@ class MainActivity : AppCompatActivity() {
         getSharedPreferences("XC", MODE_PRIVATE).getStringSet("t", null)?.forEach {
             val u = Uri.parse(it)
             if (it.contains("settings.json")) openFileWithTab(DocumentFile.fromFile(File(filesDir, "settings.json")), false)
-            else if (u.scheme == "file") openFileWithTab(DocumentFile.fromFile(File(u.path!!)), false)
+            else if (u.scheme == "file") openFileWithTab(DocumentFile.fromFile(File(u.path ?: "")), false)
             else DocumentFile.fromSingleUri(this, u)?.let { d -> if(d.exists()) openFileWithTab(d, false) }
         }
     }
@@ -351,4 +357,3 @@ class MainActivity : AppCompatActivity() {
         }
     }
 }
-
