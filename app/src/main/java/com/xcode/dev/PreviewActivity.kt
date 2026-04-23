@@ -9,70 +9,136 @@ import android.widget.*
 import android.view.Gravity
 import androidx.appcompat.app.AppCompatActivity
 import androidx.documentfile.provider.DocumentFile
-import java.io.InputStream
 
 class PreviewActivity : AppCompatActivity() {
+
     private lateinit var webView: WebView
+    private lateinit var urlBar: TextView
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.statusBarColor = Color.parseColor("#121212")
-        
+
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setBackgroundColor(Color.parseColor("#121212"))
         }
 
-        webView = WebView(this).apply {
-            layoutParams = LinearLayout.LayoutParams(-1, -1)
-            settings.javaScriptEnabled = true
-            settings.domStorageEnabled = true
-            settings.allowFileAccess = true
-            webViewClient = WebViewClient()
+        val header = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(30, 20, 30, 20)
+            setBackgroundColor(Color.parseColor("#1E1E1E"))
+            gravity = Gravity.CENTER_VERTICAL
         }
-        
-        root.addView(webView)
-        setContentView(root)
-        
+
+        urlBar = TextView(this).apply {
+            text = "http://xcode.local/preview"
+            setTextColor(Color.parseColor("#888888"))
+            setBackgroundColor(Color.parseColor("#2D2D2D"))
+            setPadding(35, 12, 35, 12)
+            setTextSize(TypedValue.COMPLEX_UNIT_SP, 12f)
+            layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+        }
+
+        header.addView(ImageView(this).apply {
+            setImageResource(android.R.drawable.ic_menu_compass)
+            setColorFilter(Color.WHITE)
+            layoutParams = LinearLayout.LayoutParams(45, 45)
+        })
+
+        header.addView(urlBar)
+        root.addView(header)
+
         val code = intent.getStringExtra("html_code") ?: ""
         val baseUriString = intent.getStringExtra("base_uri") ?: ""
-        
-        // PROSES INJEKSI OTOMATIS
-        val finalCode = if (baseUriString.isNotEmpty()) {
-            injectAssets(code, Uri.parse(baseUriString))
-        } else {
-            code
+
+        val parentFolder = if (baseUriString.isNotEmpty()) {
+            DocumentFile.fromTreeUri(this, Uri.parse(baseUriString))
+        } else null
+
+        webView = WebView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+             0,
+            1f
+         )
+
+            settings.apply {
+                javaScriptEnabled = true
+                domStorageEnabled = true
+                allowFileAccess = true
+                allowContentAccess = true
+                allowFileAccessFromFileURLs = true
+                allowUniversalAccessFromFileURLs = true
+            }
+
+            webViewClient = object : WebViewClient() {
+
+                override fun shouldInterceptRequest(
+                    view: WebView?,
+                    request: WebResourceRequest?
+                ): WebResourceResponse? {
+
+                    val url = request?.url?.toString() ?: return null
+
+                    if (url.startsWith("http://xcode.local/") && parentFolder != null) {
+
+                        val path = url.removePrefix("http://xcode.local/")
+
+                        val file = findFileRecursive(parentFolder, path)
+
+                        if (file != null) {
+                            try {
+                                val input = contentResolver.openInputStream(file.uri)
+
+                                val ext = file.name?.substringAfterLast(".", "") ?: ""
+                                val mime = MimeTypeMap.getSingleton()
+                                    .getMimeTypeFromExtension(ext.lowercase()) ?: "text/plain"
+
+                                return WebResourceResponse(mime, "UTF-8", input)
+                            } catch (e: Exception) {
+                                e.printStackTrace()
+                            }
+                        }
+                    }
+
+                    return super.shouldInterceptRequest(view, request)
+                }
+            }
+
+            setBackgroundColor(Color.WHITE)
         }
 
-        webView.loadDataWithBaseURL("https://xcode.local", finalCode, "text/html", "UTF-8", null)
+        root.addView(webView)
+        setContentView(root)
+
+        if (baseUriString.isNotEmpty()) {
+            webView.loadDataWithBaseURL(
+                "http://xcode.local/",
+                code,
+                "text/html",
+                "UTF-8",
+                null
+            )
+            urlBar.text = "http://xcode.local/index.html"
+        } else {
+            webView.loadData(code, "text/html", "UTF-8")
+        }
     }
 
-    private fun injectAssets(html: String, folderUri: Uri): String {
-        var mergedHtml = html
-        val parentFolder = DocumentFile.fromTreeUri(this, folderUri) ?: return html
+    // 🔥 SUPPORT PATH css/style.css / js/app.js
+    private fun findFileRecursive(folder: DocumentFile, path: String): DocumentFile? {
+        val parts = path.split("/")
+        var current: DocumentFile? = folder
 
-        // 1. Cari semua tag <link rel="stylesheet" href="...">
-        val cssRegex = """<link[^>]+href=["']([^"']+)["'][^>]*>""".toRegex()
-        cssRegex.findAll(html).forEach { match ->
-            val fileName = match.groups[1]?.value ?: ""
-            val file = parentFolder.findFile(fileName)
-            if (file != null) {
-                val cssContent = contentResolver.openInputStream(file.uri)?.bufferedReader()?.use { it.readText() } ?: ""
-                mergedHtml = mergedHtml.replace(match.value, "<style>$cssContent</style>")
-            }
+        for (part in parts) {
+            current = current?.findFile(part) ?: return null
         }
 
-        // 2. Cari semua tag <script src="..."></script>
-        val jsRegex = """<script[^>]+src=["']([^"']+)["'][^>]*>\s*</script>""".toRegex()
-        jsRegex.findAll(mergedHtml).forEach { match ->
-            val fileName = match.groups[1]?.value ?: ""
-            val file = parentFolder.findFile(fileName)
-            if (file != null) {
-                val jsContent = contentResolver.openInputStream(file.uri)?.bufferedReader()?.use { it.readText() } ?: ""
-                mergedHtml = mergedHtml.replace(match.value, "<script>$jsContent</script>")
-            }
-        }
+        return current
+    }
 
-        return mergedHtml
+    override fun onBackPressed() {
+        if (webView.canGoBack()) webView.goBack() else super.onBackPressed()
     }
 }
