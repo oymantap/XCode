@@ -91,7 +91,6 @@ override fun shouldInterceptRequest(
     // 🔥 LOG 1
     android.util.Log.d("WEBVIEW", "REQ: $url")
     android.util.Log.d("WEBVIEW", "PATH: $path")
-    Toast.makeText(this@PreviewActivity, "REQ: $path", Toast.LENGTH_SHORT).show()
 
     if (url.startsWith("http://xcode.local/") && parentFolder != null) {
 
