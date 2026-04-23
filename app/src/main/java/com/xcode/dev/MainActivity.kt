@@ -24,6 +24,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tabLayout: TabLayout
     private lateinit var drawerLayout: DrawerLayout
     private lateinit var settingsManager: SettingsManager
+    private lateinit var btnPlay: ImageButton
     private var loadingPopup: PopupWindow? = null
     
     private var currentFolder: DocumentFile? = null
@@ -41,15 +42,15 @@ class MainActivity : AppCompatActivity() {
         listFiles = findViewById(R.id.list_files)
         tabLayout = findViewById(R.id.tab_layout)
         drawerLayout = findViewById(R.id.drawer_layout)
+        btnPlay = findViewById(R.id.btn_play)
 
         setupAceEditor()
         setupExplorer()
         setupTabs()
         setupShortcuts()
         
-        // FIX FC: Jangan panggil showLoading langsung, tunggu window fokus
         drawerLayout.post { 
-            showLoading("Loading Assets & Folders...") 
+            showLoading("Syncing Folders...") 
             loadFoldersFromPrefs()
             
             editorWebView.postDelayed({ 
@@ -69,7 +70,6 @@ class MainActivity : AppCompatActivity() {
             addView(ProgressBar(context))
             addView(TextView(context).apply { text = msg; setTextColor(Color.WHITE); setPadding(0, 20, 0, 0) })
         }
-        // Pastikan view root sudah ada sebelum show
         if (drawerLayout.windowToken != null) {
             loadingPopup = PopupWindow(view, 500, 400).apply { showAtLocation(drawerLayout, Gravity.CENTER, 0, 0) }
         }
@@ -79,7 +79,7 @@ class MainActivity : AppCompatActivity() {
 
     private fun openDefaultFile() {
         val defaultFile = File(filesDir, "main.txt")
-        if (!defaultFile.exists()) defaultFile.writeText("// Welcome to XCode Dev\n")
+        if (!defaultFile.exists()) defaultFile.writeText("// XCode Dev 2026\n")
         openFileWithTab(DocumentFile.fromFile(defaultFile))
     }
 
@@ -98,69 +98,49 @@ class MainActivity : AppCompatActivity() {
             val finalCode = code.fixCode()
             try {
                 if (uri.toString().contains("settings.json") || uri.scheme == "file") {
-                    val path = uri.path ?: return@evaluateJavascript
-                    File(path).writeText(finalCode)
+                    File(uri.path ?: "").writeText(finalCode)
                 } else {
                     contentResolver.openOutputStream(uri, "wt")?.use { it.write(finalCode.toByteArray()) }
                 }
                 Toast.makeText(this, "Saved!", Toast.LENGTH_SHORT).show()
                 if (uri.toString().contains("settings.json")) applySettingsToEditor()
-            } catch (e: Exception) { Toast.makeText(this, "Error: ${e.message}", Toast.LENGTH_LONG).show() }
+            } catch (e: Exception) { Toast.makeText(this, "Save Failed!", Toast.LENGTH_SHORT).show() }
         }
     }
 
     private fun getFileIcon(file: DocumentFile): Int {
         if (file.isDirectory) return R.drawable.ic_folder
         val n = file.name?.lowercase() ?: ""
-        
-        // Logic Flutter: Cek folder lib atau isi file
-        if (n.endsWith(".dart")) {
-            try {
-                if (file.parentFile?.name == "lib") return R.drawable.ic_flutter
-                val stream = contentResolver.openInputStream(file.uri)
-                val line = stream?.bufferedReader()?.use { it.readLine() } ?: ""
-                if (line.contains("package:flutter")) return R.drawable.ic_flutter
-            } catch (e: Exception) {}
-            return R.drawable.ic_dart
-        }
-        
         return when {
             n.endsWith(".html") -> R.drawable.ic_html
             n.endsWith(".js") -> R.drawable.ic_js
             n.endsWith(".css") -> R.drawable.ic_css
-            n.endsWith(".jsx") || n.endsWith(".tsx") -> R.drawable.ic_jsx
-            n.endsWith(".go") -> R.drawable.ic_go
-            n.endsWith(".py") -> R.drawable.ic_py
-            n.endsWith(".php") -> R.drawable.ic_php
-            n.endsWith(".java") -> R.drawable.ic_java
             n.endsWith(".kt") || n.endsWith(".kts") -> R.drawable.ic_kt
-            n.endsWith(".rs") -> R.drawable.ic_rs
-            n.endsWith(".rb") -> R.drawable.ic_rb
-            n.endsWith(".lua") -> R.drawable.ic_lua
-            n.endsWith(".ts") -> R.drawable.ic_ts
-            n.endsWith(".sql") || n.endsWith(".json") -> R.drawable.ic_db
+            n.endsWith(".dart") -> R.drawable.ic_dart
+            n.endsWith(".json") -> R.drawable.ic_db
             else -> R.drawable.ic_files
         }
     }
 
+    // POPUP INPUT YANG KONSISTEN & RESPONSIF
     private fun showInputDialog(title: String, defaultText: String, callback: (String) -> Unit) {
-        val container = LinearLayout(this).apply {
+        val view = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; setPadding(50, 50, 50, 50)
             background = GradientDrawable().apply {
-                setColor(Color.parseColor("#EE1A1A1A")); cornerRadius = 40f
+                setColor(Color.parseColor("#F21A1A1A"))
+                cornerRadius = 35f
                 setStroke(2, Color.parseColor("#44FFFFFF"))
             }
         }
-        val popup = PopupWindow(container, 750, ViewGroup.LayoutParams.WRAP_CONTENT, true)
-        container.addView(TextView(this).apply { text = title; setTextColor(Color.CYAN); setPadding(10,0,0,30) })
-        val input = EditText(this).apply { 
-            setText(defaultText); setTextColor(Color.WHITE); setHintTextColor(Color.GRAY)
-            background = GradientDrawable().apply { setColor(Color.parseColor("#22FFFFFF")); cornerRadius = 15f }
-            setPadding(20,20,20,20)
+        val popup = PopupWindow(view, 650, ViewGroup.LayoutParams.WRAP_CONTENT, true)
+        view.addView(TextView(this).apply { text = title; setTextColor(Color.CYAN); setPadding(10, 0, 0, 30); setTextSize(16f) })
+        val input = EditText(this).apply {
+            setText(defaultText); setTextColor(Color.WHITE); setPadding(20, 20, 20, 20)
+            background = GradientDrawable().apply { setColor(Color.parseColor("#33FFFFFF")); cornerRadius = 15f }
         }
-        container.addView(input)
-        container.addView(Button(this).apply { 
-            text = "CONFIRM"; setTextColor(Color.GREEN); setBackgroundColor(0)
+        view.addView(input)
+        view.addView(Button(this).apply {
+            text = "APPLY"; setTextColor(Color.GREEN); setBackgroundColor(0)
             setOnClickListener { callback(input.text.toString()); popup.dismiss() }
         })
         popup.showAtLocation(drawerLayout, Gravity.CENTER, 0, 0)
@@ -175,22 +155,13 @@ class MainActivity : AppCompatActivity() {
             startActivityForResult(i, 1001) 
         }
         findViewById<ImageButton>(R.id.btn_save).setOnClickListener { saveCurrentFile() }
-        findViewById<ImageButton>(R.id.btn_play).setOnClickListener { runPreview() }
+        btnPlay.setOnClickListener { runPreview() }
         findViewById<ImageButton>(R.id.btn_open_drawer).setOnClickListener { drawerLayout.openDrawer(Gravity.LEFT) }
         findViewById<Button>(R.id.btn_new_file).setOnClickListener { 
-            if (currentFolder != null) showInputDialog("New File", "index.html") { 
+            if (currentFolder != null) showInputDialog("Create New File", "index.html") { 
                 currentFolder?.createFile("application/octet-stream", it)
                 refreshListView()
-            } else Toast.makeText(this, "Pilih folder dulu!", Toast.LENGTH_SHORT).show()
-        }
-        listFiles.setOnItemLongClickListener { _, _, pos, _ ->
-            val files = getVisibleFiles()
-            val actualPos = if (currentFolder != null) pos - 1 else pos
-            if (actualPos >= 0 && actualPos < files.size) {
-                val selected = files[actualPos]
-                if (selected.name != "settings.json") showModernPopup(selected, actualPos)
-            }
-            true
+            } else Toast.makeText(this, "Select folder first!", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -245,22 +216,25 @@ class MainActivity : AppCompatActivity() {
 
     private fun loadContentToEditor(uri: Uri) {
         try {
+            val name = DocumentFile.fromSingleUri(this, uri)?.name ?: "file.txt"
+            // AUTO HIDE PLAY BUTTON
+            btnPlay.visibility = if (name.endsWith(".html")) View.VISIBLE else View.GONE
+            
             val content = when {
                 uri.toString().contains("settings.json") -> settingsManager.settingsFile.readText()
                 uri.scheme == "file" -> File(uri.path!!).readText()
                 else -> contentResolver.openInputStream(uri)?.bufferedReader()?.use { it.readText() } ?: ""
             }
-            val name = DocumentFile.fromSingleUri(this, uri)?.name ?: "file.html"
             val escaped = content.replace("\\", "\\\\").replace("'", "\\'").replace("\n", "\\n")
             editorWebView.evaluateJavascript("setCode('$escaped', '$name')", null)
-            applySettingsToEditor()
         } catch (e: Exception) {}
     }
 
     private fun setupShortcuts() {
         val sc = findViewById<LinearLayout>(R.id.shortcut_layout)
         sc.removeAllViews()
-        val actions = mapOf("↩️" to "editor.focus(); editorUndo()", "↪️" to "editor.focus(); editorRedo()", "TAB" to "handleShortcut('TAB')")
+        // ICONS: UNDO (↩️), REDO (↪️), TAB (➔)
+        val actions = mapOf("↩️" to "editor.undo()", "↪️" to "editor.redo()", "➔" to "handleShortcut('TAB')")
         actions.forEach { (lbl, js) ->
             val b = Button(this).apply { text = lbl; setTextColor(Color.WHITE); setBackgroundColor(0); layoutParams = LinearLayout.LayoutParams(130, -1) }
             b.setOnClickListener { editorWebView.evaluateJavascript(js, null) }
@@ -274,20 +248,37 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // LOGIKA FOLDER AWET PAKEM 2026
     private fun loadFoldersFromPrefs() {
         val prefs = getSharedPreferences("XC", MODE_PRIVATE)
-        prefs.getStringSet("f", null)?.forEach {
-            val u = Uri.parse(it)
+        val savedUris = prefs.getStringSet("f", null) ?: return
+        rootFolders.clear()
+        
+        // Cek daftar izin yang dipegang sistem
+        val persistedPermissions = contentResolver.persistedUriPermissions.map { it.uri }
+
+        savedUris.forEach { uriString ->
+            val u = Uri.parse(uriString)
             try {
-                contentResolver.takePersistableUriPermission(u, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                // Paksa ambil ulang izin biar gak kena "permission denial"
+                if (!persistedPermissions.contains(u)) {
+                    contentResolver.takePersistableUriPermission(u, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+                }
                 DocumentFile.fromTreeUri(this, u)?.let { f -> if (f.exists()) rootFolders.add(f) }
-            } catch (e: Exception) {}
+            } catch (e: Exception) {
+                // Kalau beneran ilang/dihapus user, abaikan
+            }
         }
         refreshListView()
     }
 
-    private fun saveFoldersToPrefs() { getSharedPreferences("XC", MODE_PRIVATE).edit().putStringSet("f", rootFolders.map { it.uri.toString() }.toSet()).apply() }
-    private fun saveTabsToPrefs() { getSharedPreferences("XC", MODE_PRIVATE).edit().putStringSet("t", openedTabs.keys.map { it.toString() }.toSet()).apply() }
+    private fun saveFoldersToPrefs() { 
+        getSharedPreferences("XC", MODE_PRIVATE).edit().putStringSet("f", rootFolders.map { it.uri.toString() }.toSet()).apply() 
+    }
+
+    private fun saveTabsToPrefs() { 
+        getSharedPreferences("XC", MODE_PRIVATE).edit().putStringSet("t", openedTabs.keys.map { it.toString() }.toSet()).apply() 
+    }
     
     private fun restoreTabsFromPrefs() {
         getSharedPreferences("XC", MODE_PRIVATE).getStringSet("t", null)?.forEach {
@@ -299,15 +290,21 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showModernPopup(file: DocumentFile, pos: Int) {
-        val view = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL; setPadding(40, 40, 40, 40); background = GradientDrawable().apply { setColor(Color.parseColor("#EE1A1A1A")); cornerRadius = 35f; setStroke(2, Color.parseColor("#44FFFFFF")) } }
+        val view = LinearLayout(this).apply { 
+            orientation = LinearLayout.VERTICAL; setPadding(40, 40, 40, 40)
+            background = GradientDrawable().apply { setColor(Color.parseColor("#F21A1A1A")); cornerRadius = 35f; setStroke(2, Color.parseColor("#44FFFFFF")) } 
+        }
         val popup = PopupWindow(view, 650, ViewGroup.LayoutParams.WRAP_CONTENT, true)
         view.addView(TextView(this).apply { text = "Option: ${file.name}"; setTextColor(Color.GRAY); setTextSize(12f); setPadding(10, 0, 0, 30) })
         val options = if (currentFolder == null) arrayOf("Rename", "Eject Folder") else arrayOf("Rename", "Delete")
         options.forEachIndexed { index, s ->
             val b = Button(this).apply { text = s; setTextColor(Color.WHITE); setBackgroundColor(0); gravity = Gravity.START; isAllCaps = false }
             b.setOnClickListener {
-                if (index == 0) showInputDialog("Rename", file.name ?: "") { file.renameTo(it); refreshListView() }
-                else { if (currentFolder == null) { rootFolders.removeAt(pos - 1); saveFoldersToPrefs(); refreshListView() } else { file.delete(); refreshListView() } }
+                if (index == 0) showInputDialog("Rename Item", file.name ?: "") { file.renameTo(it); refreshListView() }
+                else { 
+                    if (currentFolder == null) { rootFolders.removeAt(pos - 1); saveFoldersToPrefs(); refreshListView() } 
+                    else { file.delete(); refreshListView() } 
+                }
                 popup.dismiss()
             }
             view.addView(b)
@@ -345,8 +342,13 @@ class MainActivity : AppCompatActivity() {
         if (requestCode == 1001 && resultCode == RESULT_OK) {
             data?.data?.let { u ->
                 contentResolver.takePersistableUriPermission(u, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
-                DocumentFile.fromTreeUri(this, u)?.let { f -> rootFolders.add(f); saveFoldersToPrefs(); refreshListView() }
+                DocumentFile.fromTreeUri(this, u)?.let { f -> 
+                    if (!rootFolders.any { it.uri == f.uri }) {
+                        rootFolders.add(f); saveFoldersToPrefs(); refreshListView()
+                    }
+                }
             }
         }
     }
 }
+
