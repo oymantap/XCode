@@ -282,10 +282,16 @@ private fun saveCurrentFile() {
         intent.putExtra("html_code", clean)
 
         // 🔥 INI KUNCI UTAMA
-        val parent = DocumentFile.fromSingleUri(this, uri)?.parentFile
-        parent?.let {
-            intent.putExtra("base_uri", it.uri.toString())
-        }
+val doc = DocumentFile.fromSingleUri(this, uri)
+
+var root = doc
+while (root?.parentFile != null) {
+    root = root.parentFile
+}
+
+root?.let {
+    intent.putExtra("base_uri", it.uri.toString())
+}
 
         startActivity(intent)
     }
