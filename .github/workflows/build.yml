@@ -16,13 +16,13 @@ jobs:
           java-version: '21'
           distribution: 'temurin'
 
-      - name: Grant execute permission
-        run: chmod +x gradlew
+      - name: Install Gradle
+        run: sudo apt-get update && sudo apt-get install gradle -y
 
       - name: Build Release APK
-        run: ./gradlew clean assembleRelease
+        run: gradle clean assembleRelease
 
-      - name: Sign APK
+      - name: Sign Android Release
         uses: r0adkll/sign-android-release@v1
         id: sign_app
         with:
@@ -31,13 +31,15 @@ jobs:
           alias: ${{ secrets.ALIAS }}
           keyStorePassword: ${{ secrets.KEYSTORE_PASSWORD }}
           keyPassword: ${{ secrets.KEY_PASSWORD }}
+        env:
+          BUILD_TOOLS_VERSION: "34.0.0"
 
-      - name: Rename APK
+      - name: Rename APK (Cool Name)
         run: |
-              mv ${{ steps.sign_app.outputs.signedReleaseFile }} app-release.apk
+          mv ${{ steps.sign_app.outputs.signedReleaseFile }} XCode-Mega-Release.apk
 
-      - name: Upload APK
+      - name: Upload Signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: XCode
-          path: ${{ steps.sign_app.outputs.signedReleaseFile }}
+          name: XCode-Mega-Release
+          path: XCode-Mega-Release.apk
