@@ -47,26 +47,32 @@ class MainActivity : AppCompatActivity() {
         setupTabs()
         setupShortcuts()
         
-        showLoading("Loading Assets & Folders...")
-        loadFoldersFromPrefs()
-
-        editorWebView.postDelayed({ 
-            applySettingsToEditor()
-            restoreTabsFromPrefs() 
-            if (tabLayout.tabCount == 0) openDefaultFile()
-            hideLoading()
-        }, 1500)
+        // FIX FC: Jangan panggil showLoading langsung, tunggu window fokus
+        drawerLayout.post { 
+            showLoading("Loading Assets & Folders...") 
+            loadFoldersFromPrefs()
+            
+            editorWebView.postDelayed({ 
+                applySettingsToEditor()
+                restoreTabsFromPrefs() 
+                if (tabLayout.tabCount == 0) openDefaultFile()
+                hideLoading()
+            }, 1000)
+        }
     }
 
     private fun showLoading(msg: String) {
         val view = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
             setPadding(60, 60, 60, 60)
-            background = GradientDrawable().apply { setColor(Color.parseColor("#CC000000")); cornerRadius = 40f }
+            background = GradientDrawable().apply { setColor(Color.parseColor("#EE0D0D0D")); cornerRadius = 40f }
             addView(ProgressBar(context))
             addView(TextView(context).apply { text = msg; setTextColor(Color.WHITE); setPadding(0, 20, 0, 0) })
         }
-        loadingPopup = PopupWindow(view, 500, 400).apply { showAtLocation(drawerLayout, Gravity.CENTER, 0, 0) }
+        // Pastikan view root sudah ada sebelum show
+        if (drawerLayout.windowToken != null) {
+            loadingPopup = PopupWindow(view, 500, 400).apply { showAtLocation(drawerLayout, Gravity.CENTER, 0, 0) }
+        }
     }
 
     private fun hideLoading() { loadingPopup?.dismiss() }
@@ -92,7 +98,8 @@ class MainActivity : AppCompatActivity() {
             val finalCode = code.fixCode()
             try {
                 if (uri.toString().contains("settings.json") || uri.scheme == "file") {
-                    File(uri.path!!).writeText(finalCode)
+                    val path = uri.path ?: return@evaluateJavascript
+                    File(path).writeText(finalCode)
                 } else {
                     contentResolver.openOutputStream(uri, "wt")?.use { it.write(finalCode.toByteArray()) }
                 }
@@ -105,14 +112,18 @@ class MainActivity : AppCompatActivity() {
     private fun getFileIcon(file: DocumentFile): Int {
         if (file.isDirectory) return R.drawable.ic_folder
         val n = file.name?.lowercase() ?: ""
+        
+        // Logic Flutter: Cek folder lib atau isi file
         if (n.endsWith(".dart")) {
             try {
+                if (file.parentFile?.name == "lib") return R.drawable.ic_flutter
                 val stream = contentResolver.openInputStream(file.uri)
                 val line = stream?.bufferedReader()?.use { it.readLine() } ?: ""
                 if (line.contains("package:flutter")) return R.drawable.ic_flutter
             } catch (e: Exception) {}
             return R.drawable.ic_dart
         }
+        
         return when {
             n.endsWith(".html") -> R.drawable.ic_html
             n.endsWith(".js") -> R.drawable.ic_js
@@ -120,10 +131,9 @@ class MainActivity : AppCompatActivity() {
             n.endsWith(".jsx") || n.endsWith(".tsx") -> R.drawable.ic_jsx
             n.endsWith(".go") -> R.drawable.ic_go
             n.endsWith(".py") -> R.drawable.ic_py
-            n.endsWith(".dart") -> R.drawable.ic_dart
             n.endsWith(".php") -> R.drawable.ic_php
             n.endsWith(".java") -> R.drawable.ic_java
-            n.endsWith(".kt") -> R.drawable.ic_kt
+            n.endsWith(".kt") || n.endsWith(".kts") -> R.drawable.ic_kt
             n.endsWith(".rs") -> R.drawable.ic_rs
             n.endsWith(".rb") -> R.drawable.ic_rb
             n.endsWith(".lua") -> R.drawable.ic_lua
@@ -138,7 +148,7 @@ class MainActivity : AppCompatActivity() {
             orientation = LinearLayout.VERTICAL; setPadding(50, 50, 50, 50)
             background = GradientDrawable().apply {
                 setColor(Color.parseColor("#EE1A1A1A")); cornerRadius = 40f
-                setStroke(2, Color.parseColor("#33FFFFFF"))
+                setStroke(2, Color.parseColor("#44FFFFFF"))
             }
         }
         val popup = PopupWindow(container, 750, ViewGroup.LayoutParams.WRAP_CONTENT, true)
@@ -171,7 +181,7 @@ class MainActivity : AppCompatActivity() {
             if (currentFolder != null) showInputDialog("New File", "index.html") { 
                 currentFolder?.createFile("application/octet-stream", it)
                 refreshListView()
-            } else Toast.makeText(this, "Select a folder first!", Toast.LENGTH_SHORT).show()
+            } else Toast.makeText(this, "Pilih folder dulu!", Toast.LENGTH_SHORT).show()
         }
         listFiles.setOnItemLongClickListener { _, _, pos, _ ->
             val files = getVisibleFiles()
@@ -340,4 +350,3 @@ class MainActivity : AppCompatActivity() {
         }
     }
 }
-
