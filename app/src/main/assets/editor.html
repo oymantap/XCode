@@ -9,8 +9,10 @@
 <body>
     <div id="editor"></div>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/ace.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/ext-modelist.min.js"></script>
     <script>
         var editor = ace.edit("editor");
+        var modelist = ace.require("ace/ext/modelist");
         editor.setTheme("ace/theme/monokai");
         editor.setOptions({
             enableBasicAutocompletion: true,
@@ -20,37 +22,40 @@
             wrap: true
         });
 
-        function setCode(code, mode) {
-            editor.session.setMode("ace/mode/" + mode);
+        function setCode(code, filename) {
+            // Otomatis deteksi mode berdasarkan nama file
+            var mode = modelist.getModeForPath(filename).mode;
+            editor.session.setMode(mode);
             editor.setValue(code, -1);
+            editor.session.getUndoManager().reset(); // Reset undo biar ga campur antar file
         }
 
         function getCode() { return editor.getValue(); }
 
-        // Fungsi baru untuk sinkronisasi settings.json
         function applySettings(config) {
-            if(config.fontSize) editor.setFontSize(config.fontSize);
+            if(!config) return;
+            editor.setFontSize(parseInt(config.fontSize) || 14);
             if(config.editorTheme) editor.setTheme("ace/theme/" + config.editorTheme);
             if(config.tabSize) editor.getSession().setTabSize(config.tabSize);
-            if(config.textWrap !== undefined) editor.getSession().setUseWrapMode(config.textWrap);
-            if(config.linenumbers !== undefined) editor.setOption("showLineNumbers", config.linenumbers);
+            editor.getSession().setUseWrapMode(config.textWrap !== false);
+            editor.setOption("showLineNumbers", config.linenumbers !== false);
         }
 
         function handleShortcut(label) {
+            editor.focus();
             if (label === "TAB") {
                 var pos = editor.getCursorPosition();
                 var line = editor.session.getLine(pos.row);
-                var beforeCursor = line.substring(0, pos.column);
-                if (beforeCursor.trim() === "!") {
-                    var bp = '<!DOCTYPE html>\n<html>\n<head>\n  <title>Document</title>\n</head>\n<body>\n\n</body>\n</html>';
+                if (line.trim() === "!") {
+                    var bp = '<!DOCTYPE html>\n<html>\n<head>\n  <meta charset="UTF-8">\n  <title>Document</title>\n</head>\n<body>\n\n</body>\n</html>';
                     editor.navigateLeft(1); editor.remove("right"); editor.insert(bp);
                 } else { editor.insert("\t"); }
             } else { editor.insert(label); }
         }
 
-        // Tambahin ini di bawah fungsi handleShortcut
-       function editorUndo() { editor.undo(); }
-       function editorRedo() { editor.redo(); }
+        function editorUndo() { editor.undo(); }
+        function editorRedo() { editor.redo(); }
     </script>
 </body>
 </html>
+
