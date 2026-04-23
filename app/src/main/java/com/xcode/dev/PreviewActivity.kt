@@ -31,6 +31,8 @@ class PreviewActivity : AppCompatActivity() {
             gravity = Gravity.CENTER_VERTICAL
         }
 
+Toast.makeText(this, "BASE: $baseUriString", Toast.LENGTH_LONG).show()
+
         urlBar = TextView(this).apply {
             text = "http://xcode.local/preview"
             setTextColor(Color.parseColor("#888888"))
@@ -74,36 +76,47 @@ class PreviewActivity : AppCompatActivity() {
 
             webViewClient = object : WebViewClient() {
 
-                override fun shouldInterceptRequest(
-                    view: WebView?,
-                    request: WebResourceRequest?
-                ): WebResourceResponse? {
+override fun shouldInterceptRequest(
+    view: WebView?,
+    request: WebResourceRequest?
+): WebResourceResponse? {
 
-                    val url = request?.url?.toString() ?: return null
+    val url = request?.url?.toString() ?: return null
 
-                    if (url.startsWith("http://xcode.local/") && parentFolder != null) {
+    var path = url.removePrefix("http://xcode.local/")
+    path = Uri.decode(path).trimStart('/')
 
-                        val path = url.removePrefix("http://xcode.local/")
+    if (path.isEmpty()) return null
 
-                        val file = findFileRecursive(parentFolder, path)
+    // 🔥 LOG 1
+    android.util.Log.d("WEBVIEW", "REQ: $url")
+    android.util.Log.d("WEBVIEW", "PATH: $path")
+    Toast.makeText(this@PreviewActivity, "REQ: $path", Toast.LENGTH_SHORT).show()
 
-                        if (file != null) {
-                            try {
-                                val input = contentResolver.openInputStream(file.uri)
+    if (url.startsWith("http://xcode.local/") && parentFolder != null) {
 
-                                val ext = file.name?.substringAfterLast(".", "") ?: ""
-                                val mime = MimeTypeMap.getSingleton()
-                                    .getMimeTypeFromExtension(ext.lowercase()) ?: "text/plain"
+        val file = findFileRecursive(parentFolder, path)
 
-                                return WebResourceResponse(mime, "UTF-8", input)
-                            } catch (e: Exception) {
-                                e.printStackTrace()
-                            }
-                        }
-                    }
+        // 🔥 LOG 2
+        android.util.Log.d("WEBVIEW", "FOUND: ${file?.name}")
 
-                    return super.shouldInterceptRequest(view, request)
-                }
+        if (file != null) {
+            try {
+                val input = contentResolver.openInputStream(file.uri)
+
+                val ext = file.name?.substringAfterLast(".", "") ?: ""
+                val mime = MimeTypeMap.getSingleton()
+                    .getMimeTypeFromExtension(ext.lowercase()) ?: "text/plain"
+
+                return WebResourceResponse(mime, "UTF-8", input)
+            } catch (e: Exception) {
+                e.printStackTrace()
+            }
+        }
+    }
+
+    return super.shouldInterceptRequest(view, request)
+              }
             }
 
             setBackgroundColor(Color.WHITE)
@@ -127,16 +140,19 @@ class PreviewActivity : AppCompatActivity() {
     }
 
     // 🔥 SUPPORT PATH css/style.css / js/app.js
-    private fun findFileRecursive(folder: DocumentFile, path: String): DocumentFile? {
-        val parts = path.split("/")
-        var current: DocumentFile? = folder
+private fun findFileRecursive(folder: DocumentFile, path: String): DocumentFile? {
+    val parts = path.split("/").filter { it.isNotEmpty() }
 
-        for (part in parts) {
-            current = current?.findFile(part) ?: return null
-        }
+    var current: DocumentFile? = folder
 
-        return current
+    for (part in parts) {
+        val next = current?.listFiles()?.find { it.name == part }
+        if (next == null) return null
+        current = next
     }
+
+    return current
+}
 
     override fun onBackPressed() {
         if (webView.canGoBack()) webView.goBack() else super.onBackPressed()
