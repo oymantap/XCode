@@ -31,8 +31,6 @@ class PreviewActivity : AppCompatActivity() {
             gravity = Gravity.CENTER_VERTICAL
         }
 
-Toast.makeText(this, "BASE: $baseUriString", Toast.LENGTH_LONG).show()
-
         urlBar = TextView(this).apply {
             text = "http://xcode.local/preview"
             setTextColor(Color.parseColor("#888888"))
@@ -53,6 +51,8 @@ Toast.makeText(this, "BASE: $baseUriString", Toast.LENGTH_LONG).show()
 
         val code = intent.getStringExtra("html_code") ?: ""
         val baseUriString = intent.getStringExtra("base_uri") ?: ""
+
+        Toast.makeText(this, "BASE: $baseUriString", Toast.LENGTH_LONG).show()
 
         val parentFolder = if (baseUriString.isNotEmpty()) {
             DocumentFile.fromTreeUri(this, Uri.parse(baseUriString))
