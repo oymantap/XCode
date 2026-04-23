@@ -2,95 +2,92 @@
 <html>
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <style>
-        body, html { margin: 0; padding: 0; width: 100%; height: 100%; background: #1e1e1e; overflow: hidden; }
-        #container { width: 100%; height: 100%; }
+        body { margin: 0; padding: 0; background: #0D0D0D; overflow: hidden; }
+        #editor { position: absolute; top: 0; bottom: 0; left: 0; right: 0; font-size: 16px; }
+        /* Biar saran kode (popup) tampilannya gak berantakan di mobile */
+        .ace_autocomplete { width: 250px !important; font-size: 14px !important; }
     </style>
 </head>
 <body>
-    <div id="container"></div>
-
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs/loader.min.js"></script>
+    <div id="editor"></div>
+    
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/ace.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/ext-modelist.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/ext-language_tools.min.js"></script>
+    
     <script>
-        var editor;
-        require.config({ paths: { 'vs': 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' }});
+        var editor = ace.edit("editor");
+        // Biar Ace bisa download mode bahasa secara otomatis pas dibutuhkan
+        ace.config.set("basePath", "https://cdnjs.cloudflare.com/ajax/libs/ace/1.32.7/");
+        
+        var modelist = ace.require("ace/ext/modelist");
+        
+        // Aktifkan Fitur Autocomplete
+        ace.require("ace/ext/language_tools");
 
-        require(['vs/editor/editor.main'], function() {
-            editor = monaco.editor.create(document.getElementById('container'), {
-                value: "// Welcome to XCode Pro",
-                language: 'javascript',
-                theme: 'vs-dark',
-                automaticLayout: true,
-                fontSize: 14,
-                minimap: { enabled: false },
-                wordWrap: 'on',
-                scrollbar: { vertical: 'hidden', horizontal: 'hidden' },
-                lineNumbers: 'on',
-                tabSize: 4
-            });
+        editor.setTheme("ace/theme/monokai");
+        editor.setOptions({
+            useWorker: false,
+            behavioursEnabled: true,
+            wrap: true,
+            fontSize: "16px",
+            showPrintMargin: false,
+            // AKTIFKAN SARAN KODE DI SINI
+            enableBasicAutocompletion: true,
+            enableLiveAutocompletion: true, // Ngetik langsung muncul saran
+            enableSnippets: true
         });
 
+        // Mapping manual buat nambahin pinter (Opsional tapi bagus buat HTML)
         function setCode(code, filename) {
-            if (!editor) return;
-            var ext = filename.split('.').pop().toLowerCase();
-            var mode = 'plaintext';
-            
-            // Mapping bahasa biar pinter
-            var mapping = {
-                'html': 'html', 'js': 'javascript', 'css': 'css', 'json': 'json',
-                'kt': 'kotlin', 'kts': 'kotlin', 'java': 'java', 'dart': 'dart',
-                'py': 'python', 'go': 'go', 'rs': 'rust', 'rb': 'ruby',
-                'ts': 'typescript', 'tsx': 'typescript', 'jsx': 'javascript',
-                'sql': 'sql', 'lua': 'lua', 'php': 'php', 'xml': 'xml'
-            };
-            
-            mode = mapping[ext] || 'plaintext';
-            
-            var model = monaco.editor.createModel(code, mode);
-            editor.setModel(model);
+            var mode = modelist.getModeForPath(filename).mode;
+            editor.session.setMode(mode);
+            editor.setValue(code, -1);
+            editor.session.getUndoManager().reset();
         }
 
         function getCode() { return editor.getValue(); }
 
         function applySettings(config) {
-            if(!editor || !config) return;
-            editor.updateOptions({
-                fontSize: parseInt(config.fontSize) || 14,
-                wordWrap: config.textWrap ? 'on' : 'off',
-                lineNumbers: config.linenumbers ? 'on' : 'off',
-                tabSize: config.tabSize || 4
-            });
-            if(config.editorTheme) monaco.editor.setTheme(config.editorTheme === 'monokai' ? 'vs-dark' : 'vs-dark');
+            if(!config) return;
+            if(config.fontSize) editor.setFontSize(parseInt(config.fontSize));
+            if(config.tabSize) editor.getSession().setTabSize(config.tabSize);
+            editor.getSession().setUseWrapMode(config.textWrap !== false);
+            editor.setOption("showLineNumbers", config.linenumbers !== false);
         }
 
         function handleShortcut(label) {
-            if (!editor) return;
             editor.focus();
-            
-            if (label === "TAB") {
-                var selection = editor.getSelection();
-                var model = editor.getModel();
-                var pos = editor.getPosition();
-                var lineContent = model.getLineContent(pos.lineNumber);
-                
-                // Emmet sederhana: Ketik '!' terus TAB
-                if (lineContent.trim() === "!") {
-                    var bp = '<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <title>Document</title>\n</head>\n<body>\n  \n</body>\n</html>';
-                    editor.executeEdits("", [{
-                        range: new monaco.Range(pos.lineNumber, 1, pos.lineNumber, pos.column),
-                        text: bp
-                    }]);
+            if (label === "TAB" || label === "➜") {
+                // Jika menu autocomplete lagi muncul, pilih sarannya
+                if (editor.completer && editor.completer.activated) {
+                    editor.completer.insertMatch();
                 } else {
-                    editor.trigger('keyboard', 'type', { text: "\t" });
+                    var pos = editor.getCursorPosition();
+                    var line = editor.session.getLine(pos.row);
+                    
+                    // EMET PRO: ! + TAB
+                    if (line.trim() === "!") {
+                        var bp = '<!DOCTYPE html>\n<html lang="en">\n<head>\n  <meta charset="UTF-8">\n  <meta name="viewport" content="width=device-width, initial-scale=1.0">\n  <meta http-equiv="X-UA-Compatible" content="ie=edge">\n  <title>Document</title>\n</head>\n<body>\n  \n</body>\n</html>';
+                        
+                        // Hapus tanda seru dan ganti dengan boilerplate
+                        editor.navigateLeft(1); 
+                        editor.remove("right"); 
+                        editor.insert(bp);
+                        
+                        // Kursor otomatis pindah ke dalem body (baris ke-10)
+                        editor.moveCursorTo(pos.row + 9, 2);
+                    } else { 
+                        editor.insert("\t"); 
+                    }
                 }
-            } else {
-                editor.trigger('keyboard', 'type', { text: label });
+            } else { 
+                editor.insert(label); 
             }
         }
-
-        function editorUndo() { editor.trigger('keyboard', 'undo'); }
-        function editorRedo() { editor.trigger('keyboard', 'redo'); }
+        
     </script>
 </body>
 </html>
