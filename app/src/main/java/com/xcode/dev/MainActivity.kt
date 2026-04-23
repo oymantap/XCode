@@ -24,6 +24,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var tabLayout: TabLayout
     private lateinit var drawerLayout: DrawerLayout
     private lateinit var settingsManager: SettingsManager
+    private lateinit var btnPlay: ImageButton
     private var loadingPopup: PopupWindow? = null
     
     private var currentFolder: DocumentFile? = null
@@ -36,21 +37,22 @@ class MainActivity : AppCompatActivity() {
         window.statusBarColor = Color.parseColor("#121212")
         setContentView(R.layout.activity_main)
 
-        // Integrasi SettingsManager yang baru lo kasih
         settingsManager = SettingsManager(this)
         
         editorWebView = findViewById(R.id.editor)
         listFiles = findViewById(R.id.list_files)
         tabLayout = findViewById(R.id.tab_layout)
         drawerLayout = findViewById(R.id.drawer_layout)
+        btnPlay = findViewById(R.id.btn_play)
 
         setupAceEditor()
         setupExplorer()
         setupTabs()
         setupShortcuts()
         
+        // FOLDER AWET: Restoring projects on start
         drawerLayout.post { 
-            showLoading("Restoring XCode Pro...") 
+            showLoading("Restoring XCode Pro Assets...") 
             loadFoldersFromPrefs()
             
             editorWebView.postDelayed({ 
@@ -70,9 +72,7 @@ class MainActivity : AppCompatActivity() {
             addView(ProgressBar(context))
             addView(TextView(context).apply { text = msg; setTextColor(Color.WHITE); setPadding(0, 20, 0, 0) })
         }
-        if (drawerLayout.windowToken != null) {
-            loadingPopup = PopupWindow(view, 500, 400).apply { showAtLocation(drawerLayout, Gravity.CENTER, 0, 0) }
-        }
+        loadingPopup = PopupWindow(view, 500, 400).apply { showAtLocation(drawerLayout, Gravity.CENTER, 0, 0) }
     }
 
     private fun hideLoading() { loadingPopup?.dismiss() }
@@ -109,17 +109,17 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // RYCL FULL ICON LOGIC (FIXED)
     private fun getFileIcon(file: DocumentFile): Int {
         if (file.isDirectory) return R.drawable.ic_folder
         val n = file.name?.lowercase() ?: ""
         
-        // Logic Flutter (Tetap dijaga biar ga ilang lagi)
         if (n.endsWith(".dart")) {
             try {
                 if (file.parentFile?.name == "lib") return R.drawable.ic_flutter
-                contentResolver.openInputStream(file.uri)?.bufferedReader()?.use { 
-                    if (it.readLine()?.contains("package:flutter") == true) return R.drawable.ic_flutter 
-                }
+                val stream = contentResolver.openInputStream(file.uri)
+                val line = stream?.bufferedReader()?.use { it.readLine() } ?: ""
+                if (line.contains("package:flutter")) return R.drawable.ic_flutter
             } catch (e: Exception) {}
             return R.drawable.ic_dart
         }
@@ -128,9 +128,17 @@ class MainActivity : AppCompatActivity() {
             n.endsWith(".html") -> R.drawable.ic_html
             n.endsWith(".js") -> R.drawable.ic_js
             n.endsWith(".css") -> R.drawable.ic_css
+            n.endsWith(".jsx") -> R.drawable.ic_jsx
+            n.endsWith(".go") -> R.drawable.ic_go
+            n.endsWith(".py") -> R.drawable.ic_py
+            n.endsWith(".php") -> R.drawable.ic_php
             n.endsWith(".java") -> R.drawable.ic_java
             n.endsWith(".kt") || n.endsWith(".kts") -> R.drawable.ic_kt
-            n.endsWith(".json") || n.endsWith(".sql") -> R.drawable.ic_db
+            n.endsWith(".rs") -> R.drawable.ic_rs
+            n.endsWith(".rb") -> R.drawable.ic_rb
+            n.endsWith(".lua") -> R.drawable.ic_lua
+            n.endsWith(".ts") -> R.drawable.ic_ts
+            n.endsWith(".sql") || n.endsWith(".json") -> R.drawable.ic_db
             else -> R.drawable.ic_files
         }
     }
@@ -152,7 +160,7 @@ class MainActivity : AppCompatActivity() {
                     currentFolder?.createFile("application/octet-stream", name)
                     refreshListView()
                 }
-            } else Toast.makeText(this, "Select folder in explorer!", Toast.LENGTH_SHORT).show()
+            } else Toast.makeText(this, "Pilih folder dulu!", Toast.LENGTH_SHORT).show()
         }
 
         findViewById<Button>(R.id.btn_back_root).setOnClickListener {
@@ -162,7 +170,10 @@ class MainActivity : AppCompatActivity() {
 
         listFiles.setOnItemLongClickListener { _, _, pos, _ ->
             val files = getVisibleFiles()
-            if (pos >= 0 && pos < files.size) showModernPopup(files[pos], pos)
+            val actualPos = if (currentFolder != null) pos - 1 else pos
+            if (actualPos >= 0 && actualPos < files.size) {
+                showModernPopup(files[actualPos], actualPos)
+            }
             true
         }
     }
@@ -185,9 +196,16 @@ class MainActivity : AppCompatActivity() {
                 return layout
             }
         }
+        if (currentFolder != null) {
+            val header = Button(this).apply { text = "← BACK"; setTextColor(Color.CYAN); setBackgroundColor(0); setOnClickListener { currentFolder = currentFolder?.parentFile; if (rootFolders.any { it.uri == currentFolder?.uri }) currentFolder = null; refreshListView() } }
+            if (listFiles.headerViewsCount == 0) listFiles.addHeaderView(header)
+        } else { while (listFiles.headerViewsCount > 0) { listFiles.removeHeaderView(listFiles.getChildAt(0)) } }
+        
         listFiles.adapter = adapter
         listFiles.setOnItemClickListener { _, _, pos, _ ->
-            val selected = files[pos]
+            val actualPos = if (currentFolder != null) pos - 1 else pos
+            if (actualPos < 0) return@setOnItemClickListener
+            val selected = files[actualPos]
             if (selected.isDirectory) { currentFolder = selected; refreshListView() }
             else { openFileWithTab(selected); drawerLayout.closeDrawers() }
         }
@@ -217,6 +235,9 @@ class MainActivity : AppCompatActivity() {
         openedTabs[file.uri] = newTab; tabToUri[newTab] = file.uri
         loadContentToEditor(file.uri)
         if (save) saveTabsToPrefs()
+        
+        // TOMBOL RUN: Hanya muncul jika .html
+        btnPlay.visibility = if (file.name?.endsWith(".html") == true) View.VISIBLE else View.GONE
     }
 
     private fun loadContentToEditor(uri: Uri) {
@@ -234,8 +255,7 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun applySettingsToEditor() {
-        val json = settingsManager.loadSettings()
-        editorWebView.evaluateJavascript("applySettings($json)", null)
+        editorWebView.evaluateJavascript("applySettings(${settingsManager.loadSettings()})", null)
     }
 
     private fun runPreview() {
@@ -246,9 +266,10 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // FOLDER AWET LOGIC
     private fun loadFoldersFromPrefs() {
-        val prefs = getSharedPreferences("XC", MODE_PRIVATE)
-        prefs.getStringSet("f", null)?.forEach {
+        val prefs = getSharedPreferences("XC_PRO", MODE_PRIVATE)
+        prefs.getStringSet("folders", null)?.forEach {
             val u = Uri.parse(it)
             try {
                 contentResolver.takePersistableUriPermission(u, Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
@@ -259,15 +280,15 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun saveFoldersToPrefs() { 
-        getSharedPreferences("XC", MODE_PRIVATE).edit().putStringSet("f", rootFolders.map { it.uri.toString() }.toSet()).apply() 
+        getSharedPreferences("XC_PRO", MODE_PRIVATE).edit().putStringSet("folders", rootFolders.map { it.uri.toString() }.toSet()).apply() 
     }
 
     private fun saveTabsToPrefs() { 
-        getSharedPreferences("XC", MODE_PRIVATE).edit().putStringSet("t", openedTabs.keys.map { it.toString() }.toSet()).apply() 
+        getSharedPreferences("XC_PRO", MODE_PRIVATE).edit().putStringSet("tabs", openedTabs.keys.map { it.toString() }.toSet()).apply() 
     }
 
     private fun restoreTabsFromPrefs() {
-        getSharedPreferences("XC", MODE_PRIVATE).getStringSet("t", null)?.forEach {
+        getSharedPreferences("XC_PRO", MODE_PRIVATE).getStringSet("tabs", null)?.forEach {
             val u = Uri.parse(it)
             if (it.contains("settings.json")) openFileWithTab(DocumentFile.fromFile(File(filesDir, "settings.json")), false)
             else if (u.scheme == "file") openFileWithTab(DocumentFile.fromFile(File(u.path!!)), false)
@@ -275,10 +296,67 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun setupAceEditor() {
-        editorWebView.settings.apply { 
-            javaScriptEnabled = true; domStorageEnabled = true; allowFileAccess = true 
+    // MODERN POPUP: Transparan, Radius, Keren
+    private fun showModernPopup(file: DocumentFile, pos: Int) {
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(30, 30, 30, 30)
+            background = GradientDrawable().apply {
+                setColor(Color.parseColor("#E61A1A1A")) // Transparan 90%
+                cornerRadius = 45f
+                setStroke(2, Color.parseColor("#33FFFFFF"))
+            }
         }
+
+        val popup = PopupWindow(root, 650, ViewGroup.LayoutParams.WRAP_CONTENT, true)
+        root.addView(TextView(this).apply { text = file.name; setTextColor(Color.CYAN); setPadding(20, 0, 0, 30); setTextSize(14f) })
+
+        val options = if (currentFolder == null && file.name != "settings.json") arrayOf("Rename", "Eject Folder") else arrayOf("Rename", "Delete")
+        options.forEachIndexed { index, s ->
+            val b = Button(this).apply { 
+                text = s; setTextColor(Color.WHITE); setBackgroundColor(0); gravity = Gravity.START; isAllCaps = false 
+            }
+            b.setOnClickListener {
+                if (s == "Rename") showInputDialog("Rename", file.name ?: "") { file.renameTo(it); refreshListView() }
+                else if (s == "Eject Folder") { rootFolders.removeAt(pos - 1); saveFoldersToPrefs(); refreshListView() }
+                else { file.delete(); refreshListView() }
+                popup.dismiss()
+            }
+            root.addView(b)
+        }
+        popup.showAtLocation(drawerLayout, Gravity.CENTER, 0, 0)
+        dimBehind(popup)
+    }
+
+    private fun showInputDialog(title: String, default: String, cb: (String) -> Unit) {
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL; setPadding(50, 50, 50, 50)
+            background = GradientDrawable().apply { setColor(Color.parseColor("#F2121212")); cornerRadius = 50f }
+        }
+        val popup = PopupWindow(root, 750, ViewGroup.LayoutParams.WRAP_CONTENT, true)
+        root.addView(TextView(this).apply { text = title; setTextColor(Color.WHITE); setPadding(0,0,0,20) })
+        val input = EditText(this).apply { 
+            setText(default); setTextColor(Color.WHITE)
+            background = GradientDrawable().apply { setColor(Color.parseColor("#22FFFFFF")); cornerRadius = 20f }
+            setPadding(30,30,30,30)
+        }
+        root.addView(input)
+        root.addView(Button(this).apply { text = "OK"; setTextColor(Color.GREEN); setBackgroundColor(0); setOnClickListener { cb(input.text.toString()); popup.dismiss() } })
+        popup.showAtLocation(drawerLayout, Gravity.CENTER, 0, 0)
+        dimBehind(popup)
+    }
+
+    private fun dimBehind(popup: PopupWindow) {
+        val container = popup.contentView.rootView
+        val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
+        val lp = container.layoutParams as WindowManager.LayoutParams
+        lp.flags = lp.flags or WindowManager.LayoutParams.FLAG_DIM_BEHIND
+        lp.dimAmount = 0.6f
+        wm.updateViewLayout(container, lp)
+    }
+
+    private fun setupAceEditor() {
+        editorWebView.settings.apply { javaScriptEnabled = true; domStorageEnabled = true; allowFileAccess = true }
         editorWebView.webViewClient = object : WebViewClient() {
             override fun onPageFinished(v: WebView?, u: String?) { applySettingsToEditor() }
         }
@@ -287,7 +365,13 @@ class MainActivity : AppCompatActivity() {
 
     private fun setupTabs() {
         tabLayout.addOnTabSelectedListener(object : TabLayout.OnTabSelectedListener {
-            override fun onTabSelected(tab: TabLayout.Tab?) { tabToUri[tab]?.let { loadContentToEditor(it) } }
+            override fun onTabSelected(tab: TabLayout.Tab?) { 
+                tabToUri[tab]?.let { 
+                    loadContentToEditor(it)
+                    val name = DocumentFile.fromSingleUri(this@MainActivity, it)?.name ?: ""
+                    btnPlay.visibility = if (name.endsWith(".html")) View.VISIBLE else View.GONE
+                } 
+            }
             override fun onTabUnselected(tab: TabLayout.Tab?) {}
             override fun onTabReselected(tab: TabLayout.Tab?) {}
         })
@@ -298,44 +382,16 @@ class MainActivity : AppCompatActivity() {
         sc.removeAllViews()
         val actions = mapOf("↺" to "editor.undo()", "↻" to "editor.redo()", "➜" to "handleShortcut('TAB')")
         actions.forEach { (lbl, js) ->
-            val b = Button(this).apply { text = lbl; setTextColor(Color.WHITE); setBackgroundColor(0) }
+            val b = Button(this).apply { text = lbl; setTextColor(Color.WHITE); setBackgroundColor(0); layoutParams = LinearLayout.LayoutParams(130, -1) }
             b.setOnClickListener { editorWebView.evaluateJavascript(js, null) }
             sc.addView(b)
         }
-        val symbols = arrayOf("<", ">", "/", "{", "}", "(", ")", ";", "\"", "'")
+        val symbols = arrayOf(":", "<", ">", "/", "{", "}", "(", ")", ";", "\"", "'", "+", "*", "-", "=", "@", "?", "$", "£", "¢", "€", "¥", "&")
         symbols.forEach { s ->
-            val b = Button(this).apply { text = s; setTextColor(Color.WHITE); setBackgroundColor(0) }
+            val b = Button(this).apply { text = s; setTextColor(Color.WHITE); setBackgroundColor(0); layoutParams = LinearLayout.LayoutParams(110, -1) }
             b.setOnClickListener { editorWebView.evaluateJavascript("handleShortcut('$s')", null) }
             sc.addView(b)
         }
-    }
-
-    private fun showInputDialog(title: String, default: String, cb: (String) -> Unit) {
-        val input = EditText(this).apply { setText(default) }
-        AlertDialog.Builder(this).setTitle(title).setView(input)
-            .setPositiveButton("OK") { _, _ -> cb(input.text.toString()) }
-            .setNegativeButton("Cancel", null).show()
-    }
-
-    private fun showModernPopup(file: DocumentFile, pos: Int) {
-        val options = if (currentFolder == null && file.name != "settings.json") arrayOf("Rename", "Eject Folder") else arrayOf("Rename", "Delete")
-        AlertDialog.Builder(this).setTitle(file.name).setItems(options) { _, which ->
-            if (which == 0) showInputDialog("Rename", file.name ?: "") { file.renameTo(it); refreshListView() }
-            else {
-                if (currentFolder == null) { rootFolders.removeAt(pos - 1); saveFoldersToPrefs() }
-                else { file.delete() }
-                refreshListView()
-            }
-        }.show()
-    }
-
-    private fun dimBehind(popup: PopupWindow) {
-        val container = popup.contentView.rootView
-        val wm = getSystemService(Context.WINDOW_SERVICE) as WindowManager
-        val lp = container.layoutParams as WindowManager.LayoutParams
-        lp.flags = WindowManager.LayoutParams.FLAG_DIM_BEHIND
-        lp.dimAmount = 0.5f
-        wm.updateViewLayout(container, lp)
     }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
